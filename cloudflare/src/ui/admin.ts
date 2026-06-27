@@ -302,8 +302,6 @@ export function renderAdminHtml() {
       gap: 16px;
       align-items: start;
     }
-    .editor-panel { width: 100%; }
-    .workspace.with-editor { margin-top: 4px; padding-top: 16px; border-top: 1px dashed var(--divider-color); }
 
     .section-title {
       display: flex;
@@ -503,7 +501,7 @@ export function renderAdminHtml() {
     }
     .editor-section.open > .editor-section-header { color: var(--primary-color); }
     .editor-section.open > .editor-section-header svg { transform: rotate(90deg); color: var(--primary-color); }
-    .editor-section-body { padding: 0 13px 14px; display: grid; gap: 10px; }
+    .editor-section-body { padding: 0 16px 14px; display: grid; gap: 10px; }
     .editor-section:not(.open) > .editor-section-body { display: none; }
     .form {
       display: grid;
@@ -613,17 +611,16 @@ export function renderAdminHtml() {
     }
     .form-actions {
       position: sticky;
-      bottom: calc(58px + var(--safe-bottom));
+      bottom: -16px;
       z-index: 20;
       display: grid;
       grid-template-columns: 1fr 1.6fr;
       gap: 8px;
-      padding: 10px 13px 8px;
+      padding: 10px 16px 16px;
+      margin: 0 -16px calc(-16px - var(--safe-bottom));
       border-top: 1px solid var(--divider-color);
+      border-radius: 0 0 18px 18px;
       background: var(--card-color);
-    }
-    @media screen and (min-width: 768px) {
-      .form-actions { bottom: 0; }
     }
 
     .backup-panel textarea {
@@ -669,18 +666,25 @@ export function renderAdminHtml() {
       inset: 0;
       z-index: 200;
       display: none;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.28);
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.4);
+      overflow-y: auto;
     }
     .modal.show { display: flex; }
     .modal-card {
+      position: relative;
       width: 100%;
-      max-width: 520px;
-      padding: 16px 13px calc(16px + var(--safe-bottom));
-      border-radius: 18px 18px 0 0;
+      max-width: 560px;
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+      padding: 16px 16px calc(16px + var(--safe-bottom));
+      border-radius: 18px;
       background: var(--popup-color);
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.22);
     }
+    .modal-card.wide { max-width: 680px; }
     .modal-card h2 {
       margin: 0 0 12px;
       font-size: 17px;
@@ -692,6 +696,21 @@ export function renderAdminHtml() {
       gap: 8px;
       margin-top: 12px;
     }
+    .modal-card .modal-close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      color: var(--comment-text-color);
+    }
+    .modal-card .modal-close:hover { background: var(--divider-color); color: var(--primary-color); }
+    .modal-card .modal-close svg { width: 16px; height: 16px; }
 
     .toast {
       position: fixed;
@@ -747,6 +766,7 @@ export function renderAdminHtml() {
 
   <div id="createModal" class="modal" aria-hidden="true">
     <form id="createForm" class="modal-card">
+      <button type="button" class="modal-close" id="createCloseBtn" aria-label="关闭"></button>
       <h2 id="createTitle">新建</h2>
       <label class="field">ID
         <input id="createId" name="id" autocomplete="off" placeholder="daily-mihomo" />
@@ -757,6 +777,8 @@ export function renderAdminHtml() {
       </div>
     </form>
   </div>
+
+  <div id="editorModal" class="modal" aria-hidden="true"></div>
 
   <div id="toast" class="toast"></div>
 
@@ -777,6 +799,7 @@ export function renderAdminHtml() {
       config: null,
       env: null,
       selectedId: null,
+      pendingOpenId: null,
       query: "",
       openSections: {},
       lockedReason: "",
@@ -814,6 +837,7 @@ export function renderAdminHtml() {
         empty: '<path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"/><path d="M3 15h5l2 3h4l2-3h5"/><path d="M3 15v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/>',
         check: '<path d="m20 6-11 11-5-5"/>',
         chevron: '<path d="m9 18 6-6-6-6"/>',
+        x: '<path d="M18 6 6 18"/><path d="M6 6l12 12"/>',
         logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
         info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
         external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
@@ -824,6 +848,7 @@ export function renderAdminHtml() {
 
     byId("refreshBtn").innerHTML = icon("refresh");
     byId("logoutBtn").innerHTML = icon("logout");
+    byId("createCloseBtn").innerHTML = icon("x");
 
     async function api(path, options = {}) {
       const headers = { "content-type": "application/json", ...(options.headers || {}) };
@@ -875,19 +900,12 @@ export function renderAdminHtml() {
         const [env, config] = await Promise.all([api("/api/env"), api("/api/config")]);
         state.env = env;
         state.config = config;
-        if (!state.selectedId) state.selectedId = firstItemId();
         render();
       } catch (error) {
         state.config = null;
         state.lockedReason = error.message || "Admin token is required";
         render();
       }
-    }
-
-    function firstItemId() {
-      if (!state.config || state.tab === "backup") return null;
-      const list = state.config[state.tab] || [];
-      return list[0]?.id || null;
     }
 
     function render() {
@@ -941,13 +959,9 @@ export function renderAdminHtml() {
       state.tab = tab;
       state.query = "";
       state.openSections = {};
-      state.selectedId = firstItemIdForTab(tab);
+      state.pendingOpenId = null;
+      closeEditorModal();
       render();
-    }
-
-    function firstItemIdForTab(tab) {
-      if (!state.config || tab === "backup") return null;
-      return (state.config[tab] || [])[0]?.id || null;
     }
 
     function renderAuth() {
@@ -978,30 +992,66 @@ export function renderAdminHtml() {
     function renderWorkspace() {
       const allItems = state.config[state.tab] || [];
       const items = filteredItems(allItems);
-      const selected = allItems.find((item) => item.id === state.selectedId) || allItems[0] || null;
-      if (selected && state.selectedId !== selected.id) state.selectedId = selected.id;
       byId("content").innerHTML =
         '<div class="toolbar">' +
         '<label class="search-field">' + icon("search") + '<input id="searchInput" value="' + escapeAttr(state.query) + '" placeholder="搜索 ' + escapeAttr(tabMeta[state.tab].noun) + '" /></label>' +
         '<button id="newBtn" class="primary-button" type="button">' + icon("plus") + '新建</button>' +
         '</div>' +
-        '<div class="workspace' + (selected ? ' with-editor' : '') + '">' +
+        '<div class="workspace">' +
         '<section><div class="section-title"><span>' + tabMeta[state.tab].noun + ' (' + items.length + ')</span><button id="clearSearchBtn" type="button" class="' + (state.query ? '' : 'hidden') + '">清除搜索</button></div>' +
-        '<div id="listStack" class="list-stack">' + (items.length ? items.map((item) => itemCard(item, selected)).join("") : emptyCard()) + '</div></section>' +
-        (selected ? '<section class="editor-panel" id="editorPanel">' + formHtml(state.tab, selected) + '</section>' : '') +
+        '<div id="listStack" class="list-stack">' + (items.length ? items.map((item) => itemCard(item, null)).join("") : emptyCard()) + '</div></section>' +
         '</div>';
-      bindWorkspace(selected);
+      bindWorkspace();
+      const queued = state.pendingOpenId;
+      state.pendingOpenId = null;
+      if (queued) openEditorModal(queued);
     }
 
     function refreshListOnly() {
       const allItems = state.config[state.tab] || [];
       const items = filteredItems(allItems);
-      const selected = allItems.find((item) => item.id === state.selectedId) || allItems[0] || null;
       const stack = byId("listStack");
       if (stack) {
-        stack.innerHTML = items.length ? items.map((item) => itemCard(item, selected)).join("") : emptyCard();
-        bindItemCards(selected);
+        stack.innerHTML = items.length ? items.map((item) => itemCard(item, null)).join("") : emptyCard();
+        bindItemCards();
       }
+    }
+
+    function openEditorModal(id) {
+      const allItems = state.config[state.tab] || [];
+      const selected = allItems.find((item) => item.id === id);
+      if (!selected) return;
+      state.selectedId = id;
+      state.openSections = {};
+      const modal = byId("editorModal");
+      modal.innerHTML = '<div class="modal-card wide">' +
+        '<button type="button" class="modal-close" id="editorCloseBtn" aria-label="关闭">' + icon("x") + '</button>' +
+        formHtml(state.tab, selected) +
+        '</div>';
+      modal.classList.add("show");
+      modal.setAttribute("aria-hidden", "false");
+      byId("editorCloseBtn").onclick = closeEditorModal;
+      modal.onclick = (event) => { if (event.target === modal) closeEditorModal(); };
+      bindForm(selected);
+      document.querySelectorAll("[data-section-toggle]").forEach((button) => {
+        button.onclick = () => {
+          const sid = button.dataset.sectionToggle;
+          const isOpen = state.openSections[sid] !== false;
+          state.openSections[sid] = !isOpen;
+          const sectionEl = button.closest(".editor-section");
+          if (sectionEl) sectionEl.classList.toggle("open", !isOpen);
+        };
+      });
+    }
+
+    function closeEditorModal() {
+      const modal = byId("editorModal");
+      modal.classList.remove("show");
+      modal.setAttribute("aria-hidden", "true");
+      modal.innerHTML = "";
+      const closeBtn = byId("editorCloseBtn");
+      if (closeBtn) closeBtn.onclick = null;
+      modal.onclick = null;
     }
 
     function filteredItems(items) {
@@ -1140,46 +1190,26 @@ export function renderAdminHtml() {
         '</div>';
     }
 
-    function bindWorkspace(selected) {
+    function bindWorkspace() {
       byId("searchInput").oninput = (event) => {
         state.query = event.target.value;
         refreshListOnly();
       };
       byId("newBtn").onclick = openCreateModal;
-      const emptyNew = byId("emptyNewBtn");
-      if (emptyNew) emptyNew.onclick = openCreateModal;
       byId("clearSearchBtn").onclick = () => { state.query = ""; renderWorkspace(); };
-      document.querySelectorAll("[data-section-toggle]").forEach((button) => {
-        button.onclick = () => {
-          const id = button.dataset.sectionToggle;
-          const isOpen = state.openSections[id] !== false;
-          state.openSections[id] = !isOpen;
-          const sectionEl = button.closest(".editor-section");
-          if (sectionEl) sectionEl.classList.toggle("open", !isOpen);
-        };
-      });
-      bindItemCards(selected);
-      bindForm(selected);
+      bindItemCards();
     }
 
-    function bindItemCards(selected) {
+    function bindItemCards() {
       const emptyNew = byId("emptyNewBtn");
       if (emptyNew) emptyNew.onclick = openCreateModal;
       document.querySelectorAll(".item-card").forEach((card) => {
-        card.onclick = () => {
-          state.selectedId = card.dataset.id;
-          state.openSections = {};
-          renderWorkspace();
-          scrollEditorIntoView();
-        };
+        card.onclick = () => openEditorModal(card.dataset.id);
       });
       document.querySelectorAll("[data-edit]").forEach((button) => {
         button.onclick = (event) => {
           event.stopPropagation();
-          state.selectedId = button.dataset.edit;
-          state.openSections = {};
-          renderWorkspace();
-          scrollEditorIntoView();
+          openEditorModal(button.dataset.edit);
         };
       });
       document.querySelectorAll("[data-delete]").forEach((button) => {
@@ -1195,13 +1225,6 @@ export function renderAdminHtml() {
           if (profile) await copyText(makeDownloadLink(profile));
         };
       });
-    }
-
-    function scrollEditorIntoView() {
-      const panel = byId("editorPanel");
-      if (panel && panel.getBoundingClientRect().bottom > window.innerHeight) {
-        panel.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
     }
 
     function bindForm(selected) {
@@ -1230,9 +1253,8 @@ export function renderAdminHtml() {
             localStorage.setItem("substore_download_token", data.downloadToken || "");
           }
           toast("已保存");
+          state.pendingOpenId = selected.id;
           await load();
-          state.selectedId = selected.id;
-          render();
         } catch (error) {
           toast(error.message || "保存失败");
         } finally {
@@ -1264,7 +1286,7 @@ export function renderAdminHtml() {
       if (!await confirmDialog("删除后无法恢复，确认删除 " + id + " ？", { title: "删除" + tabMeta[state.tab].noun, okText: "删除" })) return;
       try {
         await api("/api/" + state.tab + "/" + encodeURIComponent(id), { method: "DELETE" });
-        state.selectedId = null;
+        closeEditorModal();
         toast("已删除");
         await load();
       } catch (error) {
@@ -1316,15 +1338,15 @@ export function renderAdminHtml() {
         const payload = createPayload(id);
         await api("/api/" + state.tab, { method: "POST", body: JSON.stringify(payload) });
         closeCreateModal();
-        state.selectedId = id;
-        state.openSections = {};
-        await load();
+        state.pendingOpenId = id;
         toast("已创建");
+        await load();
       } catch (error) {
         toast(error.message || "创建失败");
       }
     };
     byId("cancelCreateBtn").onclick = closeCreateModal;
+    byId("createCloseBtn").onclick = closeCreateModal;
     byId("createModal").onclick = (event) => { if (event.target === byId("createModal")) closeCreateModal(); };
 
     function createPayload(id) {
