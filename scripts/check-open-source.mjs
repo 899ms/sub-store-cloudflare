@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { denyPatterns, skippedCurrentFiles } from "./open-source-denylist.mjs";
 
-const trackedFiles = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
+const trackedFiles = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], { encoding: "utf8" })
   .split("\0")
   .filter(Boolean)
   .filter((file) => !skippedCurrentFiles.has(file))

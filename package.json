@@ -4,14 +4,28 @@
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "setup": "pnpm --dir cloudflare install",
+    "setup": "pnpm --dir frontend install && pnpm --dir cloudflare install",
     "dev": "pnpm --dir cloudflare run dev",
-    "check": "pnpm --dir cloudflare run check",
-    "deploy:dry-run": "pnpm run check && pnpm --dir cloudflare exec wrangler deploy --dry-run",
-    "deploy": "pnpm --dir cloudflare run deploy",
+    "build:frontend": "VITE_API_URL=/ VITE_DISABLE_PWA=true pnpm --dir frontend run build",
+    "deploy:config": "node scripts/render-wrangler-config.mjs",
+    "check:worker": "pnpm --dir cloudflare run check",
+    "check:frontend": "pnpm run build:frontend",
+    "check": "pnpm run check:worker && pnpm run check:frontend",
+    "deploy:dry-run": "pnpm run check && pnpm --dir cloudflare exec wrangler deploy --dry-run --config wrangler.deploy.local.jsonc",
+    "deploy": "pnpm run build:frontend && pnpm --dir cloudflare exec wrangler deploy --config wrangler.deploy.local.jsonc",
+    "seed:validate": "node scripts/validate-agent-setup.mjs",
+    "seed:render": "node scripts/render-seed-sql.mjs",
+    "migrate:remote": "pnpm --dir cloudflare exec wrangler d1 migrations apply sub-store-cloudflare --remote --config wrangler.deploy.local.jsonc",
+    "migrate:local": "pnpm --dir cloudflare exec wrangler d1 migrations apply sub-store-cloudflare --local --config wrangler.deploy.local.jsonc",
+    "seed:local": "pnpm run seed:render && pnpm --dir cloudflare exec wrangler d1 execute sub-store-cloudflare --local --config wrangler.deploy.local.jsonc --file ../cloudflare/agent.seed.local.sql",
+    "seed:remote": "pnpm run seed:render && pnpm --dir cloudflare exec wrangler d1 execute sub-store-cloudflare --remote --config wrangler.deploy.local.jsonc --file ../cloudflare/agent.seed.local.sql",
+    "access:render": "node scripts/render-cloudflare-access.mjs",
+    "access:apply": "node scripts/render-cloudflare-access.mjs --apply",
+    "check:agent": "pnpm run seed:validate -- config/agent-setup.example.json && pnpm run seed:validate -- config/agent-setup.access.example.json && node scripts/render-seed-sql.mjs config/agent-setup.example.json /tmp/sub-store-agent-seed-test.sql && node scripts/render-cloudflare-access.mjs config/agent-setup.example.json /tmp/sub-store-access-disabled-test.json && node scripts/render-cloudflare-access.mjs config/agent-setup.access.example.json /tmp/sub-store-access-enabled-test.json && node scripts/render-wrangler-config.mjs config/agent-setup.example.json /tmp/wrangler.deploy.test.jsonc --database-id 00000000-0000-0000-0000-000000000000",
+    "check:worker-contract": "node scripts/check-worker-contract.mjs",
     "check:open-source": "node scripts/check-open-source.mjs",
     "check:history": "node scripts/check-git-history.mjs",
-    "check:release": "pnpm run check && pnpm run check:open-source && pnpm run check:history -- main"
+    "check:release": "pnpm run check && pnpm run check:agent && pnpm run check:worker-contract && pnpm run check:open-source && pnpm run check:history -- main"
   },
   "devDependencies": {}
 }

@@ -3,8 +3,8 @@ import type {
   FilterRule,
   RoutingTemplate,
   RoutingTemplateConfig,
-  StoredCollection,
-  StoredSubscription,
+  SubscriptionCollection,
+  SubscriptionSource,
   SubscriptionTarget,
   TemplateProxyGroup,
 } from "../types";
@@ -22,9 +22,9 @@ type SingBoxOutbound = Record<string, unknown> & {
 };
 
 type BuildOptions = {
-  sub?: StoredSubscription;
-  collection?: StoredCollection;
-  allSubs: StoredSubscription[];
+  source?: SubscriptionSource;
+  collection?: SubscriptionCollection;
+  sources: SubscriptionSource[];
   requestUrl: URL;
   target: SubscriptionTarget;
   template?: RoutingTemplate;
@@ -62,12 +62,34 @@ export async function buildSubscription(options: BuildOptions) {
   return renderMihomoYaml(proxies, options.requestUrl, options.template?.config);
 }
 
+export async function previewSubscription(options: Pick<BuildOptions, "source" | "collection" | "sources">) {
+  const sources = getSources({
+    ...options,
+    requestUrl: new URL("https://sub-store.local/preview"),
+    target: "json",
+  });
+  const originalLists = await Promise.all(sources.map(async (sub) => parseProxies(await loadSubscriptionRaw(sub))));
+  const original = addPreviewIds(dedupeByName(originalLists.flat()));
+  const processed = addPreviewIds(applyFilters(dedupeByName(originalLists.map((nodes, index) => {
+    const source = sources[index];
+    return applyFilters(nodes, getFilters(source));
+  }).flat()), getFilters(options.collection)));
+
+  return { original, processed };
+}
+
+export function validateSubscriptionContent(raw: string) {
+  const proxies = parseProxies(decodeMaybeBase64(raw));
+  if (proxies.length === 0) throw new Error("No valid proxy nodes found");
+  return addPreviewIds(proxies);
+}
+
 async function loadProxyNodes(options: BuildOptions) {
-  const sources = getSources(options).filter((sub) => !sub.disabled && sub.enabled !== false);
+  const sources = getSources(options).filter((sub) => sub.enabled !== false);
   if (sources.length === 0) return [];
 
   const tasks = sources.map(async (sub) => applyFilters(parseProxies(await loadSubscriptionRaw(sub)), getFilters(sub)));
-  const proxyLists = options.collection?.ignoreFailedRemoteSub
+  const proxyLists = options.collection?.ignoreFailed
     ? (await Promise.allSettled(tasks)).flatMap((result) => (result.status === "fulfilled" ? [result.value] : []))
     : await Promise.all(tasks);
 
@@ -75,22 +97,22 @@ async function loadProxyNodes(options: BuildOptions) {
 }
 
 function getSources(options: BuildOptions) {
-  if (!options.collection) return options.sub ? [options.sub] : [];
+  if (!options.collection) return options.source ? [options.source] : [];
 
-  const sourceIds = options.collection.sourceIds || options.collection.subscriptions || [];
-  if (sourceIds.length === 0) return options.allSubs;
+  const sourceIds = options.collection.sourceIds || [];
+  if (sourceIds.length === 0) return options.sources;
   return sourceIds
-    .map((id) => options.allSubs.find((sub) => sub.id === id || sub.name === id))
-    .filter((sub): sub is StoredSubscription => Boolean(sub));
+    .map((id) => options.sources.find((source) => source.id === id || source.name === id))
+    .filter((source): source is SubscriptionSource => Boolean(source));
 }
 
-function getFilters(input: StoredSubscription | StoredCollection | undefined): FilterRule[] {
-  const filters = input?.filters || input?.process || [];
+function getFilters(input: SubscriptionSource | SubscriptionCollection | undefined): FilterRule[] {
+  const filters = input?.filters || [];
   return Array.isArray(filters) ? (filters as FilterRule[]) : [];
 }
 
-async function loadSubscriptionRaw(sub: StoredSubscription) {
-  if (sub.source === "local" || sub.type === "local" || sub.content) return String(sub.content || sub.url || "");
+async function loadSubscriptionRaw(sub: SubscriptionSource) {
+  if (sub.type === "local" || sub.content) return String(sub.content || sub.url || "");
 
   const url = String(sub.url || "").split(/\r?\n/).find((item) => item.trim())?.trim();
   if (!url || !/^https?:\/\//i.test(url)) throw new Error(`Remote source ${sub.name} has no valid URL`);
@@ -123,6 +145,17 @@ function parseProxies(raw: string): ProxyNode[] {
   if (/^\s*[\[{]/.test(text)) return parseJsonProxies(text);
   if (/^\s*proxies\s*:/m.test(text)) return parseYamlProxies(text);
   return parseProxyUris(text);
+}
+
+function addPreviewIds(proxies: ProxyNode[]) {
+  return proxies.map((proxy, index) => ({
+    id: stableProxyId(proxy, index),
+    ...proxy,
+  }));
+}
+
+function stableProxyId(proxy: ProxyNode, index: number) {
+  return [proxy.name, proxy.type, proxy.server || "", proxy.port || "", index].join("|");
 }
 
 function parseJsonProxies(raw: string) {
@@ -280,9 +313,6 @@ function parseShadowsocks(line: string, index: number): ProxyNode | undefined {
 function applyFilters(proxies: ProxyNode[], filters: FilterRule[]) {
   return filters.reduce((current, filter) => {
     if (!filter || typeof filter !== "object") return current;
-    if (filter.type === "Regex Filter") return applyLegacyRegexFilter(current, filter);
-    if (filter.type === "Handle Duplicate Operator") return dedupeByFields(current, legacyFields(filter));
-    if (filter.type === "Sort Operator") return sortProxies(current, String(filter.args || "asc"));
     if (filter.type === "include") return matchFilter(current, filter, true);
     if (filter.type === "exclude") return matchFilter(current, filter, false);
     if (filter.type === "rename") return renameProxies(current, filter);
@@ -290,22 +320,6 @@ function applyFilters(proxies: ProxyNode[], filters: FilterRule[]) {
     if (filter.type === "sort") return sortProxies(current, filter.direction || "asc");
     return current;
   }, proxies);
-}
-
-function applyLegacyRegexFilter(proxies: ProxyNode[], filter: FilterRule) {
-  const args = filter.args as { regex?: unknown; keep?: unknown } | undefined;
-  const regexes = Array.isArray(args?.regex) ? args.regex.map(String) : args?.regex ? [String(args.regex)] : [];
-  const keep = args && "keep" in args ? Boolean(args.keep) : true;
-  const patterns = regexes.map(compileRegex);
-  return proxies.filter((proxy) => {
-    const matched = patterns.some((pattern) => pattern.test(proxy.name));
-    return keep ? matched : !matched;
-  });
-}
-
-function legacyFields(filter: FilterRule) {
-  const args = filter.args as { field?: unknown } | undefined;
-  return Array.isArray(args?.field) ? args.field.map(String) : ["name"];
 }
 
 function matchFilter(proxies: ProxyNode[], filter: FilterRule, keepMatches: boolean) {

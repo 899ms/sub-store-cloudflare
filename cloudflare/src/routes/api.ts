@@ -1,25 +1,59 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { failed, requireAdmin, success } from "../lib/http";
 import {
   deleteCollection,
-  deleteProfile,
   deleteSource,
   deleteTemplate,
   ensureSchema,
   getAppConfig,
   getCollection,
-  getProfile,
   getSource,
+  getSubscriptionSources,
   getTemplate,
-  replaceAppConfig,
+  sortCollections,
+  sortSources,
   upsertCollection,
-  upsertProfile,
   upsertSource,
   upsertTemplate,
 } from "../lib/store";
-import type { SubStoreEnv } from "../types";
+import { normalizeTarget, previewSubscription, validateSubscriptionContent } from "../lib/subscription";
+import type {
+  CollectionRecord,
+  FilterRule,
+  SourceRecord,
+  SubStoreEnv,
+  SubscriptionCollection,
+  SubscriptionSource,
+  SubscriptionTarget,
+  TemplateRecord,
+} from "../types";
 
 export const apiRoutes = new Hono<{ Bindings: SubStoreEnv }>();
+
+type JsonMap = Record<string, unknown>;
+type ApiContext = Context<{ Bindings: SubStoreEnv }>;
+
+const FRONTEND_VERSION = "2.17.35";
+const TARGET_ALIASES: Record<string, SubscriptionTarget> = {
+  clashmeta: "mihomo",
+  mihomo: "mihomo",
+  stash: "mihomo",
+  clash: "mihomo",
+  egern: "mihomo",
+  surfboard: "mihomo",
+  surge: "mihomo",
+  surgemac: "mihomo",
+  loon: "mihomo",
+  shadowrocket: "uri",
+  qx: "uri",
+  quantumultx: "uri",
+  v2ray: "v2ray",
+  uri: "uri",
+  json: "json",
+  singbox: "sing-box",
+  "sing-box": "sing-box",
+};
 
 apiRoutes.use("*", async (c, next) => {
   const invalid = await requireAdmin(c);
@@ -28,46 +62,446 @@ apiRoutes.use("*", async (c, next) => {
   return next();
 });
 
-apiRoutes.get("/env", async (c) =>
-  success(c, {
-    app: c.env.SUB_STORE_APP_NAME || "Sub-Store Cloudflare",
-    runtime: "Cloudflare Workers",
-    storage: "D1",
-    publicDownloadHosts: c.env.SUB_STORE_PUBLIC_DOWNLOAD_HOSTS || "",
-  }),
-);
-
-apiRoutes.get("/config", async (c) => success(c, await getAppConfig(c.env)));
-apiRoutes.put("/config", async (c) => success(c, await replaceAppConfig(c.env, await c.req.json())));
-
-apiRoutes.get("/sources", async (c) => success(c, (await getAppConfig(c.env)).sources));
-apiRoutes.post("/sources", async (c) => success(c, await upsertSource(c.env, await c.req.json())));
-apiRoutes.get("/sources/:id", async (c) => success(c, await getSource(c.env, c.req.param("id"))));
-apiRoutes.put("/sources/:id", async (c) => success(c, await upsertSource(c.env, { ...(await c.req.json()), id: c.req.param("id") })));
-apiRoutes.delete("/sources/:id", async (c) => success(c, await deleteSource(c.env, c.req.param("id"))));
-
-apiRoutes.get("/collections", async (c) => success(c, (await getAppConfig(c.env)).collections));
-apiRoutes.post("/collections", async (c) => success(c, await upsertCollection(c.env, await c.req.json())));
-apiRoutes.get("/collections/:id", async (c) => success(c, await getCollection(c.env, c.req.param("id"))));
-apiRoutes.put("/collections/:id", async (c) =>
-  success(c, await upsertCollection(c.env, { ...(await c.req.json()), id: c.req.param("id") })),
-);
-apiRoutes.delete("/collections/:id", async (c) => success(c, await deleteCollection(c.env, c.req.param("id"))));
-
-apiRoutes.get("/templates", async (c) => success(c, (await getAppConfig(c.env)).templates));
-apiRoutes.post("/templates", async (c) => success(c, await upsertTemplate(c.env, await c.req.json())));
-apiRoutes.get("/templates/:id", async (c) => success(c, await getTemplate(c.env, c.req.param("id"))));
-apiRoutes.put("/templates/:id", async (c) => success(c, await upsertTemplate(c.env, { ...(await c.req.json()), id: c.req.param("id") })));
-apiRoutes.delete("/templates/:id", async (c) => {
-  if (c.req.param("id") === "mihomo-basic") return failed(c, "Default template cannot be deleted", 400);
-  return success(c, await deleteTemplate(c.env, c.req.param("id")));
+apiRoutes.get("/env", async (c) => success(c, envPayload(c.env)));
+apiRoutes.get("/settings", async (c) => success(c, defaultSettings(c.env)));
+apiRoutes.patch("/settings", async (c) => {
+  const input = await c.req.json<JsonMap>().catch(() => ({}));
+  return success(c, mergeSettings(defaultSettings(c.env), input));
 });
 
-apiRoutes.get("/profiles", async (c) => success(c, (await getAppConfig(c.env)).profiles));
-apiRoutes.post("/profiles", async (c) => success(c, await upsertProfile(c.env, await c.req.json())));
-apiRoutes.get("/profiles/:id", async (c) => success(c, await getProfile(c.env, c.req.param("id"))));
-apiRoutes.put("/profiles/:id", async (c) => success(c, await upsertProfile(c.env, { ...(await c.req.json()), id: c.req.param("id") })));
-apiRoutes.delete("/profiles/:id", async (c) => success(c, await deleteProfile(c.env, c.req.param("id"))));
+apiRoutes.get("/sources", async (c) => success(c, (await getAppConfig(c.env)).sources.map(toApiSource)));
+apiRoutes.post("/sources", async (c) => {
+  const input = await c.req.json<JsonMap>();
+  if (!stringValue(input.id || input.name)) return failed(c, "Source id is required");
+  return success(c, toApiSource(await upsertSource(c.env, fromApiSource(input))));
+});
+apiRoutes.put("/sources", async (c) => {
+  const input = await c.req.json().catch(() => []);
+  if (!Array.isArray(input)) return failed(c, "Source sort payload must be an array");
+  return success(c, (await sortSources(c.env, input.map((item) => stringValue(item.id || item.name || item)).filter(Boolean))).map(toApiSource));
+});
+apiRoutes.post("/sort/sources", async (c) => success(c, (await sortSources(c.env, await stringListBody(c))).map(toApiSource)));
 
-apiRoutes.get("/export", async (c) => success(c, await getAppConfig(c.env)));
-apiRoutes.post("/import", async (c) => success(c, await replaceAppConfig(c.env, await c.req.json())));
+apiRoutes.get("/sources/:name", async (c) => {
+  const sub = await getSource(c.env, c.req.param("name"));
+  if (!sub) return failed(c, "Source not found", 404);
+  return success(c, toApiSource(sub));
+});
+apiRoutes.patch("/sources/:name", async (c) => {
+  const existing = await getSource(c.env, c.req.param("name"));
+  if (!existing) return failed(c, "Source not found", 404);
+  return success(c, toApiSource(await upsertSource(c.env, mergeSource(existing, fromApiSource(await c.req.json())))));
+});
+apiRoutes.delete("/sources/:name", async (c) => success(c, await deleteSource(c.env, c.req.param("name"))));
+
+apiRoutes.get("/collections", async (c) => success(c, (await getAppConfig(c.env)).collections.map(toApiCollection)));
+apiRoutes.post("/collections", async (c) => {
+  const input = await c.req.json<JsonMap>();
+  if (!stringValue(input.id || input.name)) return failed(c, "Collection id is required");
+  return success(c, toApiCollection(await upsertCollection(c.env, fromApiCollection(input))));
+});
+apiRoutes.put("/collections", async (c) => {
+  const input = await c.req.json().catch(() => []);
+  if (!Array.isArray(input)) return failed(c, "Collection sort payload must be an array");
+  return success(c, (await sortCollections(c.env, input.map((item) => stringValue(item.id || item.name || item)).filter(Boolean))).map(toApiCollection));
+});
+apiRoutes.post("/sort/collections", async (c) => success(c, (await sortCollections(c.env, await stringListBody(c))).map(toApiCollection)));
+
+apiRoutes.get("/collections/:name", async (c) => {
+  const collection = await getCollection(c.env, c.req.param("name"));
+  if (!collection) return failed(c, "Collection not found", 404);
+  return success(c, toApiCollection(collection));
+});
+apiRoutes.patch("/collections/:name", async (c) => {
+  const existing = await getCollection(c.env, c.req.param("name"));
+  if (!existing) return failed(c, "Collection not found", 404);
+  return success(c, toApiCollection(await upsertCollection(c.env, mergeCollection(existing, fromApiCollection(await c.req.json())))));
+});
+apiRoutes.delete("/collections/:name", async (c) => success(c, await deleteCollection(c.env, c.req.param("name"))));
+
+apiRoutes.get("/templates", async (c) => success(c, (await getAppConfig(c.env)).templates.map(toApiTemplate)));
+apiRoutes.post("/templates", async (c) => {
+  const input = await c.req.json<JsonMap>();
+  if (!stringValue(input.name || input.id)) return failed(c, "Template name is required");
+  return success(c, toApiTemplate(await upsertTemplate(c.env, fromApiTemplate(input))));
+});
+apiRoutes.get("/templates/:name", async (c) => {
+  const template = await getTemplate(c.env, c.req.param("name"));
+  if (!template) return failed(c, "Template not found", 404);
+  return success(c, toApiTemplate(template));
+});
+apiRoutes.patch("/templates/:name", async (c) => {
+  const existing = await getTemplate(c.env, c.req.param("name"));
+  if (!existing) return failed(c, "Template not found", 404);
+  return success(c, toApiTemplate(await upsertTemplate(c.env, { ...fromApiTemplate(await c.req.json()), id: existing.id })));
+});
+apiRoutes.delete("/templates/:name", async (c) => {
+  try {
+    return success(c, await deleteTemplate(c.env, c.req.param("name")));
+  } catch (error) {
+    return failed(c, error instanceof Error ? error.message : String(error), 400);
+  }
+});
+
+apiRoutes.post("/preview/source", async (c) => {
+  const input = await c.req.json<JsonMap>();
+  try {
+    if (input.source === "local" || input.content) {
+      const nodes = validateSubscriptionContent(stringValue(input.content));
+      return success(c, { original: nodes, processed: nodes });
+    }
+    const source = toSubscriptionSource(input);
+    return success(c, await previewSubscription({ source, sources: [source] }));
+  } catch (error) {
+    return failed(c, error instanceof Error ? error.message : String(error), 400);
+  }
+});
+
+apiRoutes.post("/preview/collection", async (c) => {
+  const input = await c.req.json<JsonMap>();
+  try {
+    return success(c, await previewSubscription({ collection: toSubscriptionCollection(input), sources: await getSubscriptionSources(c.env) }));
+  } catch (error) {
+    return failed(c, error instanceof Error ? error.message : String(error), 400);
+  }
+});
+
+apiRoutes.get("/link/source/:name", async (c) => {
+  const sub = await getSource(c.env, c.req.param("name"));
+  if (!sub) return failed(c, "Source not found", 404);
+  return success(c, buildDownloadLink(c, "source", sub.id));
+});
+apiRoutes.get("/link/collection/:name", async (c) => {
+  const collection = await getCollection(c.env, c.req.param("name"));
+  if (!collection) return failed(c, "Collection not found", 404);
+  return success(c, buildDownloadLink(c, "collection", collection.id));
+});
+
+apiRoutes.get("/source/flow/:name", async (c) => {
+  const sub = await getSource(c.env, c.req.param("name"));
+  if (!sub) return flowFailed(c, "Source not found", 404);
+  const parsed = parseFlowRequest(toApiSource(sub));
+  if (!parsed) return flowFailed(c, "No flow info");
+
+  try {
+    const headers = await fetchFlowHeaders(parsed);
+    const flow = parseFlowHeaders([stringValue(sub.meta.subUserinfo), headers].filter(Boolean).join("; "));
+    if (!flow) return flowFailed(c, "No flow info");
+    return success(c, flow);
+  } catch (error) {
+    return flowFailed(c, error instanceof Error ? error.message : String(error), 500);
+  }
+});
+
+function envPayload(env: SubStoreEnv) {
+  return {
+    app: env.SUB_STORE_APP_NAME || "Sub-Store Cloudflare",
+    backend: "Cloudflare",
+    version: FRONTEND_VERSION,
+    runtime: "Cloudflare Workers",
+    storage: "D1",
+    feature: {},
+    meta: {
+      cloudflare: {
+        env: {
+          SUB_STORE_BACKEND_CUSTOM_NAME: env.SUB_STORE_APP_NAME || "Sub-Store Cloudflare",
+          SUB_STORE_DOCKER: "false",
+        },
+      },
+    },
+  };
+}
+
+function defaultSettings(env: SubStoreEnv) {
+  return {
+    defaultUserAgent: "clash.meta/v1.19.24",
+    defaultFlowUserAgent: "clash.meta/v1.19.24",
+    defaultTimeout: "30000",
+    backendRequestConcurrency: "3",
+    backendRequestConcurrencyWaitTime: "100",
+    theme: { auto: true, name: "light", dark: "dark", light: "light" },
+    appearanceSetting: {
+      isSimpleMode: true,
+      isLeftRight: false,
+      isDefaultIcon: false,
+      isIconColor: false,
+      isShowIcon: true,
+      isSimpleShowRemark: false,
+      isEditorCommon: false,
+      manualSubscriptionsDisplayMode: "collapsed",
+      editorGroupingMode: "edit-only",
+      isSimpleReicon: false,
+      isSubItemMenuFold: true,
+      showFloatingRefreshButton: false,
+      showFloatingAddButton: false,
+      createItemPosition: "bottom",
+      displayPreviewInWebPage: true,
+      subProgressStyle: "hidden",
+      listPageViewMode: "single-column",
+      listPageViewModeInWideScreenNarrowMode: "single-column",
+      useNarrowModeOnWideScreen: false,
+    },
+    appName: env.SUB_STORE_APP_NAME || "Sub-Store Cloudflare",
+  };
+}
+
+function mergeSettings(base: JsonMap, input: JsonMap) {
+  return {
+    ...base,
+    ...input,
+    theme: { ...objectValue(base.theme), ...objectValue(input.theme) },
+    appearanceSetting: { ...objectValue(base.appearanceSetting), ...objectValue(input.appearanceSetting) },
+  };
+}
+
+function toApiSource(source: SourceRecord) {
+  return {
+    id: source.id,
+    name: source.name,
+    type: source.type,
+    url: source.url,
+    content: source.content,
+    filters: source.filters,
+    enabled: source.enabled,
+    meta: source.meta,
+  };
+}
+
+function fromApiSource(input: JsonMap): Partial<SourceRecord> {
+  const id = stringValue(input.id || input.name);
+  const name = stringValue(input.name || input.id);
+  return {
+    id,
+    name,
+    type: input.type === "local" ? "local" : "remote",
+    url: stringValue(input.url),
+    content: stringValue(input.content),
+    enabled: input.enabled !== false,
+    filters: filterList(input.filters),
+    meta: objectValue(input.meta),
+  };
+}
+
+function mergeSource(existing: SourceRecord, next: Partial<SourceRecord>) {
+  return { ...existing, ...next, meta: { ...existing.meta, ...next.meta } };
+}
+
+function toApiCollection(collection: CollectionRecord) {
+  return {
+    id: collection.id,
+    name: collection.name,
+    sourceIds: collection.sourceIds,
+    filters: collection.filters,
+    templateId: collection.templateId,
+    ignoreFailed: collection.ignoreFailed,
+    enabled: collection.enabled,
+    meta: collection.meta,
+  };
+}
+
+function fromApiCollection(input: JsonMap): Partial<CollectionRecord> {
+  const id = stringValue(input.id || input.name);
+  const name = stringValue(input.name || input.id);
+  return {
+    id,
+    name,
+    sourceIds: stringArray(input.sourceIds),
+    filters: filterList(input.filters),
+    templateId: stringValue(input.templateId) || undefined,
+    ignoreFailed: input.ignoreFailed !== false,
+    enabled: input.enabled !== false,
+    meta: objectValue(input.meta),
+  };
+}
+
+function mergeCollection(existing: CollectionRecord, next: Partial<CollectionRecord>) {
+  return { ...existing, ...next, meta: { ...existing.meta, ...next.meta } };
+}
+
+function toApiTemplate(template: TemplateRecord) {
+  return {
+    id: template.id,
+    name: template.name,
+    target: template.target,
+    config: template.config,
+    readonly: template.id === "mihomo-basic" || template.id === "acl4ssr-mihomo",
+  };
+}
+
+function fromApiTemplate(input: JsonMap): Partial<TemplateRecord> {
+  return {
+    id: stringValue(input.id || input.name),
+    name: stringValue(input.name || input.id),
+    target: normalizeTargetValue(input.target),
+    config: objectValue(input.config),
+  };
+}
+
+function toSubscriptionSource(input: JsonMap): SubscriptionSource {
+  const sub = fromApiSource(input);
+  return {
+    id: sub.id || "preview",
+    name: sub.name || stringValue(input.name) || "Preview",
+    type: sub.type || "remote",
+    url: sub.url || "",
+    content: sub.content || "",
+    filters: sub.filters || [],
+    enabled: sub.enabled !== false,
+    meta: sub.meta || {},
+  };
+}
+
+function toSubscriptionCollection(input: JsonMap): SubscriptionCollection {
+  const collection = fromApiCollection(input);
+  return {
+    id: collection.id || "preview",
+    name: collection.name || stringValue(input.name) || "Preview",
+    sourceIds: collection.sourceIds || [],
+    filters: collection.filters || [],
+    templateId: collection.templateId || "",
+    ignoreFailed: collection.ignoreFailed !== false,
+    enabled: collection.enabled !== false,
+    meta: collection.meta || {},
+  };
+}
+
+function buildDownloadLink(c: ApiContext, kind: "source" | "collection", id: string) {
+  const target = normalizeDownloadTarget(c.req.query("target"));
+  const path = kind === "collection" ? `/download/collection/${encodeURIComponent(id)}/${target}` : `/download/source/${encodeURIComponent(id)}/${target}`;
+  const url = new URL(path, getPublicBaseUrl(c));
+  if (c.env.SUB_STORE_PUBLIC_DOWNLOAD_TOKEN) url.searchParams.set("token", c.env.SUB_STORE_PUBLIC_DOWNLOAD_TOKEN);
+  return { url: url.toString(), target, tokenIncluded: Boolean(c.env.SUB_STORE_PUBLIC_DOWNLOAD_TOKEN) };
+}
+
+function getPublicBaseUrl(c: ApiContext) {
+  const publicHost = (c.env.SUB_STORE_PUBLIC_DOWNLOAD_HOSTS || "").split(",").map((host) => host.trim()).find(Boolean);
+  const host = publicHost || c.req.header("x-forwarded-host") || c.req.header("host") || new URL(c.req.url).host;
+  return `https://${host}`;
+}
+
+function normalizeDownloadTarget(input: unknown): SubscriptionTarget {
+  return TARGET_ALIASES[String(input || "").toLowerCase()] || normalizeTarget(String(input || "mihomo"));
+}
+
+function normalizeTargetValue(input: unknown): SubscriptionTarget {
+  const target = String(input || "mihomo").toLowerCase();
+  if (target === "sing-box" || target === "v2ray" || target === "uri" || target === "json") return target;
+  return "mihomo";
+}
+
+async function stringListBody(c: ApiContext) {
+  const input = await c.req.json().catch(() => []);
+  return Array.isArray(input) ? input.map(String).filter(Boolean) : [];
+}
+
+type FlowRequest = {
+  url: string;
+  userAgent: string;
+  headers: Record<string, string>;
+};
+
+function flowFailed(c: ApiContext, message: string, status = 400) {
+  return c.json({ status: "failed", error: { code: "NO_FLOW_INFO", type: "NO_FLOW_INFO", message } }, status as 400);
+}
+
+function parseFlowRequest(sub: JsonMap): FlowRequest | undefined {
+  const rawUrl = stringValue(sub.url);
+  const args = parseUrlArguments(rawUrl);
+  const flowUrl = stringValue(args.flowUrl) || rawUrl.split("#")[0];
+  if (args.noFlow || !/^https?:\/\//i.test(flowUrl)) return undefined;
+  return {
+    url: flowUrl,
+    userAgent: stringValue(args.flowUserAgent) || "clash.meta/v1.19.24",
+    headers: parseJsonHeaders(args.flowHeaders),
+  };
+}
+
+function parseUrlArguments(rawUrl: string) {
+  const hash = rawUrl.split("#").slice(1).join("#");
+  if (!hash) return {} as JsonMap;
+  try {
+    return JSON.parse(decodeURIComponent(hash)) as JsonMap;
+  } catch {
+    return Object.fromEntries(
+      hash
+        .split("&")
+        .filter(Boolean)
+        .map((pair) => {
+          const [key, value] = pair.split("=");
+          return [key, value === undefined || value === "" ? true : decodeURIComponent(value)];
+        }),
+    );
+  }
+}
+
+function parseJsonHeaders(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return {};
+  const parsed = JSON.parse(value) as JsonMap;
+  return Object.fromEntries(Object.entries(parsed).map(([key, item]) => [key, String(item)]));
+}
+
+async function fetchFlowHeaders(input: FlowRequest) {
+  const response = await fetch(input.url, { headers: { "user-agent": input.userAgent, ...input.headers } });
+  const headerFlow = response.headers.get("subscription-userinfo");
+  const appUrl = response.headers.get("profile-web-page-url");
+  const planName = response.headers.get("profile-title") || response.headers.get("plan-name");
+  const body = await response.text();
+  return [
+    headerFlow,
+    /(?:^|[;\n\r ])upload=/.test(body) ? body : undefined,
+    appUrl ? `app_url=${encodeURIComponent(appUrl)}` : undefined,
+    planName ? `plan_name=${encodeURIComponent(planName)}` : undefined,
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
+function parseFlowHeaders(flowHeaders: string) {
+  const upload = numberField(flowHeaders, "upload") ?? 0;
+  const download = numberField(flowHeaders, "download");
+  const total = numberField(flowHeaders, "total");
+  if (download === undefined || total === undefined) return undefined;
+  return {
+    expires: numberField(flowHeaders, "expire"),
+    total,
+    usage: { upload, download },
+    remainingDays: numberField(flowHeaders, "reset_day"),
+    appUrl: textField(flowHeaders, "app_url"),
+    planName: textField(flowHeaders, "plan_name"),
+  };
+}
+
+function numberField(input: string, key: string) {
+  const match = input.match(new RegExp(`${key}=([-+]?)([0-9]*\\.?[0-9]+(?:[eE][-+]?[0-9]+)?)`));
+  return match ? Number(match[1] + match[2]) : undefined;
+}
+
+function textField(input: string, key: string) {
+  const match = input.match(new RegExp(`${key}=(.*?)\\s*?(;|$)`));
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
+function keepMeta(input: JsonMap, excluded: string[]) {
+  const excludedSet = new Set(excluded);
+  return Object.fromEntries(Object.entries(input).filter(([key]) => !excludedSet.has(key)));
+}
+
+function objectValue(input: unknown): JsonMap {
+  return input && typeof input === "object" && !Array.isArray(input) ? (input as JsonMap) : {};
+}
+
+function filterList(input: unknown): FilterRule[] {
+  return Array.isArray(input) ? (input.filter((item) => item && typeof item === "object") as FilterRule[]) : [];
+}
+
+function stringArray(input: unknown): string[] {
+  return Array.isArray(input) ? input.map(String).filter(Boolean) : [];
+}
+
+function arrayValue(input: unknown): unknown[] {
+  return Array.isArray(input) ? input : [];
+}
+
+function stringValue(input: unknown): string {
+  return typeof input === "string" ? input : "";
+}

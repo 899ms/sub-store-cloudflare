@@ -4,6 +4,17 @@
   "main": "src/index.ts",
   "workers_dev": true,
   "compatibility_date": "2026-06-10",
+  "assets": {
+    "directory": "../frontend/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*",
+      "/download/*",
+      "/sw.js",
+      "/registerSW.js"
+    ]
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

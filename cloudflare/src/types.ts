@@ -1,4 +1,5 @@
 export type SubStoreEnv = {
+  ASSETS?: Fetcher;
   DB: D1Database;
   SUB_STORE_APP_NAME?: string;
   SUB_STORE_ADMIN_TOKEN?: string;
@@ -19,34 +20,26 @@ export type FilterRule = {
   [key: string]: unknown;
 };
 
-export type StoredSubscription = {
-  id?: string;
+export type SubscriptionSource = {
+  id: string;
   name: string;
-  displayName?: string;
-  source?: "remote" | "local";
-  type?: "remote" | "local";
-  url?: string;
-  content?: string;
-  process?: FilterRule[] | unknown[];
+  type: "remote" | "local";
+  url: string;
+  content: string;
   filters?: FilterRule[];
   enabled?: boolean;
-  disabled?: boolean;
-  tag?: string[];
-  [key: string]: unknown;
+  meta?: Record<string, unknown>;
 };
 
-export type StoredCollection = {
-  id?: string;
+export type SubscriptionCollection = {
+  id: string;
   name: string;
-  displayName?: string;
-  subscriptions?: string[];
   sourceIds?: string[];
-  process?: FilterRule[] | unknown[];
   filters?: FilterRule[];
   templateId?: string;
-  ignoreFailedRemoteSub?: boolean;
+  ignoreFailed?: boolean;
   enabled?: boolean;
-  [key: string]: unknown;
+  meta?: Record<string, unknown>;
 };
 
 export type RoutingTemplate = {
@@ -89,6 +82,7 @@ export type SourceRecord = {
   content: string;
   enabled: boolean;
   filters: FilterRule[];
+  meta: Record<string, unknown>;
   createdAt: number;
   updatedAt: number;
 };
@@ -103,6 +97,7 @@ export type CollectionRecord = {
   enabled: boolean;
   createdAt: number;
   updatedAt: number;
+  meta: Record<string, unknown>;
 };
 
 export type TemplateRecord = {
@@ -114,20 +109,8 @@ export type TemplateRecord = {
   updatedAt: number;
 };
 
-export type ProfileRecord = {
-  id: string;
-  name: string;
-  collectionId: string;
-  target: SubscriptionTarget;
-  templateId: string;
-  enabled: boolean;
-  createdAt: number;
-  updatedAt: number;
-};
-
 export type AppConfig = {
   sources: SourceRecord[];
   collections: CollectionRecord[];
   templates: TemplateRecord[];
-  profiles: ProfileRecord[];
 };

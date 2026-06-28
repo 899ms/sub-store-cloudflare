@@ -12,6 +12,10 @@ wrangler.deploy.local.jsonc
 cloudflare/wrangler.deploy.local.jsonc
 *.seed.local.json
 *.seed.local.sql
+*.local.json
+*.local.jsonc
+*.setup.local.json
+*.setup.local.sql
 *.private.json
 *.private.sql
 

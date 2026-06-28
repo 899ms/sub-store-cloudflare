@@ -1,43 +1,55 @@
 # Sub-Store Cloudflare
 
-一个极简的 Cloudflare Worker 订阅聚合器。它把订阅源、组合订阅、节点筛选和分流规则模板放在云端配置，客户端只需要订阅最终输出链接。
+一个部署在 Cloudflare Workers 上的订阅聚合与规则配置工具。它把订阅源、节点过滤、组合订阅和分流规则模板放在云端，客户端只需要订阅最终生成的链接。
 
-[English README](README.en.md)
+English: [README.en.md](README.en.md)
 
-## 这是什么
+## 适合谁
 
-Sub-Store Cloudflare 的默认形态是一个 Worker 应用：
+- 有多个机场订阅、VPS 自建节点或本地节点文本，希望统一输出一个订阅链接。
+- 希望把分流规则、节点筛选和组合逻辑放在服务端维护，而不是在每个客户端重复配置。
+- 希望用 Cloudflare 的轻量部署方式运行，不想维护服务器、数据库服务和复杂后台任务。
 
-- 内置轻量管理页，不需要单独部署前端。
-- 用 D1 保存订阅源、组合订阅、规则模板和输出链接。
-- 用 Worker Secrets 管理管理端 token 和下载 token。
-- 支持输出 Mihomo、sing-box、v2ray、URI 和 JSON。
-- 规则模板、过滤规则和组合订阅都保存在 D1，不和代码耦合。
+## 项目做什么
 
-致敬原版 [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store)。原版 Sub-Store 做了大量协议解析、订阅管理和客户端生态兼容工作；这个仓库聚焦 Cloudflare 上的轻量云端聚合与规则配置。
+- 管理远程订阅 URL 和本地节点文本。
+- 把多个订阅源组合成一个云端组合订阅。
+- 对节点做包含、排除、重命名、去重和排序。
+- 内置常用 Mihomo 分流模板，也支持导入自己的模板。
+- 输出 Mihomo、sing-box、v2ray、URI 和 JSON。
+- 使用 Worker Secrets 保护管理端和下载链接。
 
-## 核心概念
+这个项目聚焦“云端聚合 + 云端规则模板 + 最终订阅输出”。它不包含 Gist 同步、文件管理、分享、归档、日志面板、队列任务等额外系统。
 
-| 概念 | 作用 |
-| --- | --- |
-| Sources | 远程订阅 URL 或本地节点文本。 |
-| Collections | 把多个 Sources 聚合成一个云端组合订阅。 |
-| Filters | 对节点做保留、排除、重命名、去重和排序。 |
-| Templates | 配置 Mihomo 的 `proxy-groups`、`rule-providers` 和 `rules`。 |
-| Profiles | 把 Collection、目标格式和 Template 绑定成最终下载链接。 |
+## 致谢
 
-核心价值是把客户端里的复杂配置前移到云端：多个订阅和节点在 Worker 里聚合，分流规则在 D1 里维护，客户端只保留一个订阅 URL。
+本项目的前端交互和订阅管理思路参考并致敬 [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store)。原版 Sub-Store 是功能完整的订阅管理项目，覆盖了更广的运行环境和客户端生态；这个仓库选择更小的 Cloudflare-native 形态，方便直接部署和二次修改。
 
-## 项目地图
+## 架构
+
+```text
+Cloudflare Worker
+  |-- Static Assets       Vue 管理界面
+  |-- /api/*              配置 API
+  |-- /download/source/*  单订阅源输出
+  |-- /download/collection/* 组合订阅输出
+  |
+  |-- D1                  sources / collections / templates
+  |-- Worker Secrets      admin token / download token
+```
+
+只需要 Cloudflare Workers + D1。KV、R2、Durable Objects、Queue、Cron 都不是核心路径。
+
+目录：
 
 ```text
 .
-├── cloudflare/              # 默认部署入口：Worker + D1 + 内置管理页
-├── docs/                     # 架构和部署说明
-└── scripts/                  # 维护脚本
+├── frontend/      # Vue 管理界面，构建后由 Worker 静态资源托管
+├── cloudflare/    # Worker、D1 schema、订阅生成逻辑
+├── config/        # 初始配置示例，local 文件用于导入自己的订阅源
+├── docs/          # 架构和部署说明
+└── scripts/       # 开源检查和维护脚本
 ```
-
-首次部署只需要关注 `cloudflare/`。
 
 ## 快速开始
 
@@ -53,24 +65,50 @@ Sub-Store Cloudflare 的默认形态是一个 Worker 应用：
 pnpm run setup
 ```
 
-创建 D1 数据库，并把返回的 `database_id` 填到 [cloudflare/wrangler.jsonc](cloudflare/wrangler.jsonc)：
+创建 D1 数据库：
 
 ```bash
 pnpm --dir cloudflare exec wrangler d1 create sub-store-cloudflare
+```
+
+用返回的 `database_id` 生成本地部署配置：
+
+```bash
+cp config/agent-setup.example.json config/agent-setup.local.json
+pnpm run deploy:config -- config/agent-setup.local.json cloudflare/wrangler.deploy.local.jsonc --database-id <database-id>
 ```
 
 本地开发：
 
 ```bash
 cp cloudflare/.dev.vars.example cloudflare/.dev.vars
+pnpm run build:frontend
 pnpm run dev
 ```
 
-`SUB_STORE_ADMIN_TOKEN` 和 `SUB_STORE_PUBLIC_DOWNLOAD_TOKEN` 都需要配置。前者用于管理页和 API，后者用于客户端订阅下载。
+访问：
+
+```text
+http://localhost:8787/?token=<admin-token>
+```
+
+## 用 AI Agent 部署
+
+如果你希望用 Codex、Claude Code 之类的 Agent 一路完成部署，可以让 Agent 读取 [AGENTS.md](AGENTS.md) 和 [agent/SKILL.md](agent/SKILL.md)，或者直接复制 [agent/install.prompt.md](agent/install.prompt.md) 里的提示词。
+
+最短版本：
+
+```text
+Follow AGENTS.md and agent/SKILL.md in this repository. Help me deploy this Sub-Store Cloudflare project to my Cloudflare account. Ask me only for missing inputs, prepare my subscription sources and collections, generate the D1 seed SQL, deploy the Worker, import the seed, and give me the final admin URL plus collection download URLs.
+```
+
+Agent 会把订阅源和本地节点写入 `config/agent-setup.local.json`，再生成 `cloudflare/agent.seed.local.sql` 导入 D1。
+
+规则模板和过滤器预设在 [config/rule-presets.json](config/rule-presets.json)，配置结构见 [config/agent-setup.schema.json](config/agent-setup.schema.json)。详细说明见 [docs/ai-agent-install.md](docs/ai-agent-install.md)。
 
 ## 部署
 
-设置管理端和下载端 token：
+设置生产 Secrets：
 
 ```bash
 pnpm --dir cloudflare exec wrangler secret put SUB_STORE_ADMIN_TOKEN
@@ -80,7 +118,7 @@ pnpm --dir cloudflare exec wrangler secret put SUB_STORE_PUBLIC_DOWNLOAD_TOKEN
 应用 D1 迁移：
 
 ```bash
-pnpm --dir cloudflare run migrate:remote
+pnpm run migrate:remote
 ```
 
 部署：
@@ -90,58 +128,73 @@ pnpm run deploy:dry-run
 pnpm run deploy
 ```
 
-默认会部署到 `workers.dev`。如果要绑定自己的域名，再在 [cloudflare/wrangler.jsonc](cloudflare/wrangler.jsonc) 中添加 `routes` 或 `custom_domain` 配置。
+导入 Agent 准备好的初始配置：
 
-部署后访问管理页：
+```bash
+cp config/agent-setup.example.json config/agent-setup.local.json
+# 编辑 config/agent-setup.local.json
+pnpm run seed:render
+pnpm run seed:remote
+```
+
+管理界面：
 
 ```text
 https://substore.example.com/?token=<admin-token>
 ```
 
-客户端下载链接形如：
+订阅链接：
 
 ```text
-https://substore.example.com/download/<profile>/mihomo?token=<download-token>
-https://substore.example.com/download/<profile>/sing-box?token=<download-token>
+https://substore.example.com/download/source/<source-id>/mihomo?token=<download-token>
+https://substore.example.com/download/collection/<collection-id>/mihomo?token=<download-token>
 ```
 
-更完整步骤见 [docs/deployment.md](docs/deployment.md)。
+如果配置了独立下载域名，把它写入 `SUB_STORE_PUBLIC_DOWNLOAD_HOSTS`。该域名只开放 `/download/*`。
+
+完整部署步骤见 [docs/deployment.md](docs/deployment.md)。
 
 ## 配置模型
+
+| 概念 | 作用 |
+| --- | --- |
+| Sources | 远程订阅 URL 或本地节点文本。 |
+| Collections | 多个 Sources 的组合订阅。 |
+| Filters | 节点包含、排除、重命名、去重、排序。 |
+| Templates | Mihomo 的代理组、规则提供者和规则列表。 |
+
+Worker API 保存的过滤器是这版自己的小型 JSON DSL，不暴露前端编辑器内部字段：
 
 过滤器示例：
 
 ```json
 [
-  { "type": "include", "field": "name", "pattern": "香港|HK|Japan|JP" },
-  { "type": "exclude", "field": "name", "pattern": "倍率|剩余|官网" },
+  { "type": "include", "field": "name", "pattern": "香港|HK|日本|JP" },
+  { "type": "exclude", "field": "name", "pattern": "官网|剩余|倍率" },
   { "type": "dedupe", "fields": ["server", "port"] },
   { "type": "sort", "direction": "asc" }
 ]
 ```
 
-模板示例：
+模板中的 `proxyGroups[].proxies` 可以写 `$all`，生成订阅时会展开为当前组合里的全部节点。
 
-```json
-{
-  "proxyGroups": [
-    { "name": "🚀 节点选择", "type": "select", "proxies": ["♻️ 自动选择", "DIRECT"] },
-    { "name": "♻️ 自动选择", "type": "url-test", "proxies": ["$all"], "url": "https://www.gstatic.com/generate_204", "interval": 300 }
-  ],
-  "rules": [
-    "DOMAIN-SUFFIX,openai.com,🚀 节点选择",
-    "GEOIP,CN,DIRECT",
-    "MATCH,🚀 节点选择"
-  ]
-}
+## 内置模板
+
+- `acl4ssr-mihomo`：默认模板，使用 ACL4SSR 和常用媒体/AI 分流。
+- `acl4ssr-mihomo-no-emoji`：同样使用 ACL4SSR，但分组名不带 emoji。
+- `mihomo-basic`：小型基础模板。
+- `loyalsoldier-whitelist`：Loyalsoldier 白名单思路。
+- `loyalsoldier-blacklist`：Loyalsoldier 黑名单思路。
+- `ai-streaming-mihomo`：AI、流媒体、Telegram、GitHub 常用规则。
+
+## 发布前检查
+
+```bash
+pnpm run check:release
 ```
 
-`$all` 会在生成时展开成当前组合订阅里的全部节点。
+这个命令会检查 Worker、构建前端，并扫描当前文件和 `main` 历史里的常见发布风险。
 
-## 许可证
+## License
 
-见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。若从 [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store) 复制或移植代码，请保留原项目许可证声明。
-
-## 致谢
-
-感谢 [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store) 和所有原项目贡献者。
+见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。

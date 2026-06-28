@@ -2,8 +2,6 @@ import { Hono } from "hono";
 import { apiRoutes } from "./routes/api";
 import { downloadRoutes } from "./routes/download";
 import { applyCorsHeaders } from "./lib/http";
-import { ensureSchema } from "./lib/store";
-import { renderAdminHtml } from "./ui/admin";
 import type { SubStoreEnv } from "./types";
 
 const app = new Hono<{ Bindings: SubStoreEnv }>();
@@ -38,14 +36,16 @@ app.options("*", (c) => {
   });
 });
 
-app.get("/", async (c) => {
-  await ensureSchema(c.env);
-  return c.html(renderAdminHtml());
-});
-
 app.route("/api", apiRoutes);
 app.route("/", downloadRoutes);
-app.notFound((c) => c.text("Not Found", 404));
+app.get("/sw.js", (c) =>
+  c.text("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',(event)=>event.waitUntil(self.registration.unregister()));", 200, {
+    "content-type": "application/javascript; charset=utf-8",
+    "cache-control": "no-store",
+  }),
+);
+app.get("/registerSW.js", (c) => c.text("", 200, { "content-type": "application/javascript; charset=utf-8", "cache-control": "no-store" }));
+app.notFound((c) => c.env.ASSETS?.fetch(c.req.raw) || c.text("Not Found", 404));
 
 export default {
   async fetch(request: Request, env: SubStoreEnv, ctx: ExecutionContext) {

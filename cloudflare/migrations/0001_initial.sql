@@ -30,14 +30,3 @@ CREATE TABLE IF NOT EXISTS templates (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
-
-CREATE TABLE IF NOT EXISTS profiles (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  collection_id TEXT NOT NULL,
-  target TEXT NOT NULL DEFAULT 'mihomo',
-  template_id TEXT NOT NULL DEFAULT 'mihomo-basic',
-  enabled INTEGER NOT NULL DEFAULT 1,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
