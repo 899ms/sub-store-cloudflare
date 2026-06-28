@@ -271,6 +271,8 @@ const supportedActionTypes = [
   'Region Filter',
   'Type Filter',
   'Regex Filter',
+  'Flag Operator',
+  'Regex Sort Operator',
   'Regex Delete Operator',
   'Regex Rename Operator',
   'Handle Duplicate Operator',

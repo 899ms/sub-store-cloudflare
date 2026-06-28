@@ -14,12 +14,14 @@ English: [README.en.md](README.en.md)
 
 - 管理远程订阅 URL 和本地节点文本。
 - 把多个订阅源组合成一个云端组合订阅。
-- 对节点做包含、排除、重命名、去重和排序。
-- 内置常用 Mihomo 分流模板，也支持导入自己的模板。
+- 对节点做区域/类型/正则过滤、重命名、正则删除、去重、正则排序、旗帜处理和常用属性设置。
+- 内置常用 Mihomo 分流模板，也支持导入自己的 JSON/YAML 模板。
+- 在网页里预览处理前后的节点列表。
+- 支持配置备份/恢复、远程订阅请求超时、User-Agent 和并发参数。
 - 输出 Mihomo、sing-box、v2ray、URI 和 JSON。
 - 使用 Worker Secrets 保护管理端和下载链接。
 
-这个项目聚焦“云端聚合 + 云端规则模板 + 最终订阅输出”。它不包含 Gist 同步、文件管理、分享、归档、日志面板、队列任务等额外系统。
+这个项目聚焦“云端聚合 + 云端节点处理 + 云端规则模板 + 最终订阅输出”。它保留日常维护订阅需要的核心链路，不包含 Gist 同步、文件管理、分享、归档、日志面板、队列任务等额外系统。
 
 ## 致谢
 
@@ -34,7 +36,7 @@ Cloudflare Worker
   |-- /download/source/*  单订阅源输出
   |-- /download/collection/* 组合订阅输出
   |
-  |-- D1                  sources / collections / templates
+  |-- D1                  sources / collections / templates / settings
   |-- Worker Secrets      admin token / download token
 ```
 
@@ -160,7 +162,7 @@ https://substore.example.com/download/collection/<collection-id>/mihomo?token=<d
 | --- | --- |
 | Sources | 远程订阅 URL 或本地节点文本。 |
 | Collections | 多个 Sources 的组合订阅。 |
-| Filters | 节点包含、排除、重命名、去重、排序。 |
+| Filters | 节点包含、排除、正则删除、重命名、去重、排序、旗帜和常用属性设置。 |
 | Templates | Mihomo 的代理组、规则提供者和规则列表。 |
 
 Worker API 保存的过滤器是这版自己的小型 JSON DSL，不暴露前端编辑器内部字段：
@@ -171,7 +173,10 @@ Worker API 保存的过滤器是这版自己的小型 JSON DSL，不暴露前端
 [
   { "type": "include", "field": "name", "pattern": "香港|HK|日本|JP" },
   { "type": "exclude", "field": "name", "pattern": "官网|剩余|倍率" },
-  { "type": "dedupe", "fields": ["server", "port"] },
+  { "type": "delete-field", "field": "name", "patterns": ["倍率\\s*\\d+"] },
+  { "type": "dedupe", "fields": ["server", "port"], "action": "rename", "link": "-" },
+  { "type": "regex-sort", "expressions": ["香港|HK", "日本|JP", "新加坡|SG"], "direction": "asc" },
+  { "type": "flag", "mode": "add" },
   { "type": "sort", "direction": "asc" }
 ]
 ```

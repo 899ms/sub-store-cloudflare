@@ -16,5 +16,12 @@ export function useSettingsApi() {
         data,
       });
     },
+    restoreSettings: (data: StoragePostData): AxiosPromise<MyAxiosRes> => {
+      return request({
+        url: '/api/storage',
+        method: 'post',
+        data,
+      });
+    },
   };
 }

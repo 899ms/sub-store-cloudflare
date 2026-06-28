@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { failed, isTokenValid } from "../lib/http";
 import { buildSubscription, getTargetContentType, normalizeTarget } from "../lib/subscription";
-import { ensureSchema, getRoutingTemplate, getSource, getSubscriptionCollection, getSubscriptionSources } from "../lib/store";
+import { ensureSchema, getRoutingTemplate, getSettings, getSource, getSubscriptionCollection, getSubscriptionSources } from "../lib/store";
 import type { SubscriptionCollection, SubscriptionSource, SubStoreEnv, SubscriptionTarget } from "../types";
 
 export const downloadRoutes = new Hono<{ Bindings: SubStoreEnv }>();
@@ -73,6 +73,7 @@ async function renderDownload(
   },
 ) {
   const template = await getRoutingTemplate(c.env, options.templateId);
+  const settings = await getSettings(c.env);
   try {
     const body = await buildSubscription({
       source: options.source,
@@ -81,6 +82,7 @@ async function renderDownload(
       requestUrl: new URL(c.req.url),
       target: options.target,
       template,
+      settings,
     });
     return new Response(body, {
       headers: {

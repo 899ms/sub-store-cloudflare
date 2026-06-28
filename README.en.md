@@ -8,8 +8,10 @@ Chinese is the primary documentation language for this repository. See [README.m
 
 - Manages remote subscription URLs and local node text.
 - Combines multiple sources into one cloud-side collection.
-- Filters, renames, deduplicates, and sorts proxy nodes.
-- Provides built-in Mihomo routing templates and supports custom templates.
+- Filters by region, type, and regex; renames, deletes matched name text, deduplicates, regex-sorts, adds/removes flags, and applies common node options.
+- Provides built-in Mihomo routing templates and supports custom JSON/YAML templates.
+- Previews original and processed node lists in the admin UI.
+- Supports config backup/restore and request options such as User-Agent, timeout, and remote fetch concurrency.
 - Outputs Mihomo, sing-box, v2ray, URI, and JSON.
 - Uses Worker Secrets for admin and download tokens.
 
@@ -24,7 +26,7 @@ Cloudflare Worker
   |-- /download/source/*         source output
   |-- /download/collection/*     collection output
   |
-  |-- D1                         sources / collections / templates
+  |-- D1                         sources / collections / templates / settings
   |-- Worker Secrets             admin token / download token
 ```
 

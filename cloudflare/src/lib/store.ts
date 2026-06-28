@@ -7,6 +7,7 @@ import {
   DEFAULT_TEMPLATE_ID,
 } from "./defaults";
 import type {
+  AppSettings,
   AppConfig,
   CollectionRecord,
   FilterRule,
@@ -56,6 +57,12 @@ CREATE TABLE IF NOT EXISTS templates (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+  id TEXT PRIMARY KEY,
+  value_json TEXT NOT NULL DEFAULT '{}',
+  updated_at INTEGER NOT NULL
+);
+
 `;
 
 type SourceRow = {
@@ -93,6 +100,14 @@ type TemplateRow = {
   updated_at: number;
 };
 
+type SettingsRow = {
+  id: string;
+  value_json: string;
+  updated_at: number;
+};
+
+const SETTINGS_ID = "default";
+
 export async function ensureSchema(env: SubStoreEnv) {
   const statements = SCHEMA_SQL.split(";")
     .map((statement) => statement.trim())
@@ -106,12 +121,13 @@ export async function ensureSchema(env: SubStoreEnv) {
 
 export async function getAppConfig(env: SubStoreEnv): Promise<AppConfig> {
   await ensureSchema(env);
-  const [sources, collections, templates] = await Promise.all([
+  const [sources, collections, templates, settings] = await Promise.all([
     listSources(env),
     listCollections(env),
     listTemplates(env),
+    readSettings(env),
   ]);
-  return { sources, collections, templates };
+  return { sources, collections, templates, settings };
 }
 
 export async function listSources(env: SubStoreEnv) {
@@ -305,6 +321,66 @@ export async function deleteTemplate(env: SubStoreEnv, id: string) {
   return { deleted: true };
 }
 
+export async function getSettings(env: SubStoreEnv): Promise<AppSettings> {
+  await ensureSchema(env);
+  return readSettings(env);
+}
+
+async function readSettings(env: SubStoreEnv): Promise<AppSettings> {
+  const row = await env.DB.prepare("SELECT * FROM app_settings WHERE id = ?").bind(SETTINGS_ID).first<SettingsRow>();
+  return normalizeMeta(parseJson(row?.value_json || "{}", {}));
+}
+
+export async function updateSettings(env: SubStoreEnv, next: AppSettings) {
+  await ensureSchema(env);
+  const now = Date.now();
+  const current = await readSettings(env);
+  const settings = mergeDeep(current, next);
+  await env.DB.prepare(
+    `INSERT INTO app_settings (id, value_json, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       value_json = excluded.value_json,
+       updated_at = excluded.updated_at`,
+  )
+    .bind(SETTINGS_ID, JSON.stringify(settings), now)
+    .run();
+  return settings;
+}
+
+export async function exportStorage(env: SubStoreEnv) {
+  const config = await getAppConfig(env);
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings: config.settings || {},
+    sources: config.sources,
+    collections: config.collections,
+    templates: config.templates.filter((template) => !BUILTIN_TEMPLATE_IDS.has(template.id)),
+  };
+}
+
+export async function importStorage(env: SubStoreEnv, input: unknown) {
+  await ensureSchema(env);
+  const payload = normalizeStoragePayload(input);
+  await updateSettings(env, payload.settings);
+  for (const source of payload.sources) {
+    await upsertSource(env, source);
+  }
+  for (const template of payload.templates) {
+    await upsertTemplate(env, template);
+  }
+  for (const collection of payload.collections) {
+    await upsertCollection(env, collection);
+  }
+  return {
+    restored: true,
+    sources: payload.sources.length,
+    collections: payload.collections.length,
+    templates: payload.templates.length,
+  };
+}
+
 export async function getSubscriptionSources(env: SubStoreEnv): Promise<SubscriptionSource[]> {
   const sources = await listSources(env);
   return sources.map((source) => ({
@@ -446,6 +522,73 @@ function normalizeFilters(value: unknown): FilterRule[] {
   return Array.isArray(value) ? (value.filter((item) => item && typeof item === "object") as FilterRule[]) : [];
 }
 
+function normalizeStoragePayload(input: unknown) {
+  if (typeof input === "string") {
+    return normalizeStoragePayload(parseJson(input, {}));
+  }
+
+  const payload = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  if (typeof payload.content === "string") {
+    return normalizeStoragePayload(payload.content);
+  }
+
+  return {
+    settings: normalizeMeta(payload.settings),
+    sources: Array.isArray(payload.sources) ? payload.sources.map(normalizeSourceInput).filter(Boolean) as Partial<SourceRecord>[] : [],
+    collections: Array.isArray(payload.collections)
+      ? payload.collections.map(normalizeCollectionInput).filter(Boolean) as Partial<CollectionRecord>[]
+      : [],
+    templates: Array.isArray(payload.templates) ? payload.templates.map(normalizeTemplateInput).filter(Boolean) as Partial<TemplateRecord>[] : [],
+  };
+}
+
+function normalizeSourceInput(input: unknown): Partial<SourceRecord> | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const source = input as Record<string, unknown>;
+  const id = stringValue(source.id || source.name, "");
+  if (!id) return undefined;
+  return {
+    id,
+    name: stringValue(source.name, id),
+    type: source.type === "local" ? "local" : "remote",
+    url: stringValue(source.url, ""),
+    content: stringValue(source.content, ""),
+    enabled: source.enabled !== false,
+    filters: normalizeFilters(source.filters),
+    meta: normalizeMeta(source.meta),
+  };
+}
+
+function normalizeCollectionInput(input: unknown): Partial<CollectionRecord> | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const collection = input as Record<string, unknown>;
+  const id = stringValue(collection.id || collection.name, "");
+  if (!id) return undefined;
+  return {
+    id,
+    name: stringValue(collection.name, id),
+    sourceIds: stringArray(collection.sourceIds),
+    filters: normalizeFilters(collection.filters),
+    templateId: stringValue(collection.templateId, DEFAULT_TEMPLATE_ID),
+    ignoreFailed: collection.ignoreFailed !== false,
+    enabled: collection.enabled !== false,
+    meta: normalizeMeta(collection.meta),
+  };
+}
+
+function normalizeTemplateInput(input: unknown): Partial<TemplateRecord> | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const template = input as Record<string, unknown>;
+  const id = stringValue(template.id || template.name, "");
+  if (!id || BUILTIN_TEMPLATE_IDS.has(id)) return undefined;
+  return {
+    id,
+    name: stringValue(template.name, id),
+    target: normalizeTargetValue(template.target),
+    config: parseConfig(template.config),
+  };
+}
+
 function parseConfig(value: unknown) {
   return value && typeof value === "object" ? (value as JsonObject) : BUILTIN_TEMPLATES[0].config;
 }
@@ -454,6 +597,22 @@ function normalizeMeta(input: unknown, fallback: unknown = {}): Record<string, u
   if (input && typeof input === "object" && !Array.isArray(input)) return input as Record<string, unknown>;
   if (fallback && typeof fallback === "object" && !Array.isArray(fallback)) return fallback as Record<string, unknown>;
   return {};
+}
+
+function mergeDeep(base: Record<string, unknown>, next: Record<string, unknown>): Record<string, unknown> {
+  const output: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(next)) {
+    if (isPlainObject(value) && isPlainObject(output[key])) {
+      output[key] = mergeDeep(output[key] as Record<string, unknown>, value as Record<string, unknown>);
+    } else if (value !== undefined) {
+      output[key] = value;
+    }
+  }
+  return output;
+}
+
+function isPlainObject(input: unknown) {
+  return Boolean(input && typeof input === "object" && !Array.isArray(input));
 }
 
 function parseJson<T>(text: string, fallback: T): T {

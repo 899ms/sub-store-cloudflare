@@ -1,5 +1,6 @@
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type {
+  AppSettings,
   FilterRule,
   RoutingTemplate,
   RoutingTemplateConfig,
@@ -28,6 +29,7 @@ type BuildOptions = {
   requestUrl: URL;
   target: SubscriptionTarget;
   template?: RoutingTemplate;
+  settings?: AppSettings;
 };
 
 const TEST_URL = "https://www.gstatic.com/generate_204";
@@ -62,25 +64,29 @@ export async function buildSubscription(options: BuildOptions) {
   return renderMihomoYaml(proxies, options.requestUrl, options.template?.config);
 }
 
-export async function previewSubscription(options: Pick<BuildOptions, "source" | "collection" | "sources">) {
+export async function previewSubscription(options: Pick<BuildOptions, "source" | "collection" | "sources" | "settings">) {
   const sources = getSources({
     ...options,
     requestUrl: new URL("https://sub-store.local/preview"),
     target: "json",
   });
-  const originalLists = await Promise.all(sources.map(async (sub) => parseProxies(await loadSubscriptionRaw(sub))));
-  const original = addPreviewIds(dedupeByName(originalLists.flat()));
-  const processed = addPreviewIds(applyFilters(dedupeByName(originalLists.map((nodes, index) => {
+  const originalLists = await runWithConcurrency(
+    sources.map((sub) => async () => parseProxies(await loadSubscriptionRaw(sub, options.settings))),
+    getRequestConcurrency(options.settings),
+    getRequestConcurrencyWait(options.settings),
+  );
+  const original = addPreviewIds(originalLists.flat());
+  const processed = addPreviewIds(ensureUniqueProxyNames(applyFilters(originalLists.map((nodes, index) => {
     const source = sources[index];
     return applyFilters(nodes, getFilters(source));
-  }).flat()), getFilters(options.collection)));
+  }).flat(), getFilters(options.collection))));
 
   return { original, processed };
 }
 
 export function validateSubscriptionContent(raw: string) {
   const proxies = parseProxies(decodeMaybeBase64(raw));
-  if (proxies.length === 0) throw new Error("No valid proxy nodes found");
+  if (proxies.length === 0) throw new Error(formatInvalidLocalContentError(raw));
   return addPreviewIds(proxies);
 }
 
@@ -88,12 +94,12 @@ async function loadProxyNodes(options: BuildOptions) {
   const sources = getSources(options).filter((sub) => sub.enabled !== false);
   if (sources.length === 0) return [];
 
-  const tasks = sources.map(async (sub) => applyFilters(parseProxies(await loadSubscriptionRaw(sub)), getFilters(sub)));
+  const tasks = sources.map((sub) => async () => applyFilters(parseProxies(await loadSubscriptionRaw(sub, options.settings)), getFilters(sub)));
   const proxyLists = options.collection?.ignoreFailed
-    ? (await Promise.allSettled(tasks)).flatMap((result) => (result.status === "fulfilled" ? [result.value] : []))
-    : await Promise.all(tasks);
+    ? (await Promise.allSettled(tasks.map((task) => task()))).flatMap((result) => (result.status === "fulfilled" ? [result.value] : []))
+    : await runWithConcurrency(tasks, getRequestConcurrency(options.settings), getRequestConcurrencyWait(options.settings));
 
-  return applyFilters(dedupeByName(proxyLists.flat()), getFilters(options.collection));
+  return ensureUniqueProxyNames(applyFilters(proxyLists.flat(), getFilters(options.collection)));
 }
 
 function getSources(options: BuildOptions) {
@@ -111,15 +117,93 @@ function getFilters(input: SubscriptionSource | SubscriptionCollection | undefin
   return Array.isArray(filters) ? (filters as FilterRule[]) : [];
 }
 
-async function loadSubscriptionRaw(sub: SubscriptionSource) {
+async function loadSubscriptionRaw(sub: SubscriptionSource, settings?: AppSettings) {
   if (sub.type === "local" || sub.content) return String(sub.content || sub.url || "");
 
-  const url = String(sub.url || "").split(/\r?\n/).find((item) => item.trim())?.trim();
-  if (!url || !/^https?:\/\//i.test(url)) throw new Error(`Remote source ${sub.name} has no valid URL`);
+  const urls = splitSourceUrls(sub.url);
+  if (urls.length === 0) throw new Error(`Remote source ${sub.name} has no valid URL`);
 
-  const response = await fetch(url, { headers: { "user-agent": "clash.meta/v1.19.24" } });
-  if (!response.ok) throw new Error(`Remote source ${sub.name} failed: ${response.status}`);
-  return decodeMaybeBase64(await response.text());
+  const contents = await runWithConcurrency(
+    urls.map((url) => async () => fetchSubscriptionUrl(url, sub, settings)),
+    getRequestConcurrency(settings),
+    getRequestConcurrencyWait(settings),
+  );
+  return contents.map(decodeMaybeBase64).join("\n");
+}
+
+function splitSourceUrls(raw: string) {
+  return String(raw || "")
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter((item) => /^https?:\/\//i.test(item));
+}
+
+async function fetchSubscriptionUrl(url: string, sub: SubscriptionSource, settings?: AppSettings) {
+  const controller = new AbortController();
+  const timeout = getRequestTimeout(settings);
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      headers: { "user-agent": getSourceUserAgent(sub, settings) },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Remote source ${sub.name} failed: ${response.status}`);
+    return response.text();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function getSourceUserAgent(sub: SubscriptionSource, settings?: AppSettings) {
+  return (
+    stringSetting(sub.meta?.ua)
+    || stringSetting(sub.meta?.userAgent)
+    || stringSetting(settings?.defaultUserAgent)
+    || "clash.meta/v1.19.24"
+  );
+}
+
+function getRequestTimeout(settings?: AppSettings) {
+  return numberSetting(settings?.defaultTimeout, 30000, 1000, 120000);
+}
+
+function getRequestConcurrency(settings?: AppSettings) {
+  return numberSetting(settings?.backendRequestConcurrency, 3, 1, 12);
+}
+
+function getRequestConcurrencyWait(settings?: AppSettings) {
+  return numberSetting(settings?.backendRequestConcurrencyWaitTime, 0, 0, 5000);
+}
+
+async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency: number, waitMs = 0) {
+  const results = new Array<T>(tasks.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < tasks.length) {
+      const index = cursor;
+      cursor += 1;
+      if (waitMs > 0 && index > 0) await delay(waitMs);
+      results[index] = await tasks[index]();
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
+  return results;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function stringSetting(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function numberSetting(value: unknown, fallback: number, min: number, max: number) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(Math.max(Math.trunc(number), min), max);
 }
 
 function decodeMaybeBase64(raw: string) {
@@ -188,13 +272,17 @@ function parseProxyUris(raw: string) {
 }
 
 function parseProxyUri(line: string, index: number): ProxyNode | undefined {
-  if (line.startsWith("vless://")) return parseVless(line, index);
-  if (line.startsWith("anytls://")) return parseAnytls(line, index);
-  if (line.startsWith("hysteria2://") || line.startsWith("hy2://")) return parseHysteria2(line, index);
-  if (line.startsWith("trojan://")) return parseTrojan(line, index);
-  if (line.startsWith("vmess://")) return parseVmess(line, index);
-  if (line.startsWith("ss://")) return parseShadowsocks(line, index);
-  return undefined;
+  try {
+    if (line.startsWith("vless://")) return parseVless(line, index);
+    if (line.startsWith("anytls://")) return parseAnytls(line, index);
+    if (line.startsWith("hysteria2://") || line.startsWith("hy2://")) return parseHysteria2(line, index);
+    if (line.startsWith("trojan://")) return parseTrojan(line, index);
+    if (line.startsWith("vmess://")) return parseVmess(line, index);
+    if (line.startsWith("ss://")) return parseShadowsocks(line, index);
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function parseVless(line: string, index: number): ProxyNode {
@@ -316,8 +404,12 @@ function applyFilters(proxies: ProxyNode[], filters: FilterRule[]) {
     if (filter.type === "include") return matchFilter(current, filter, true);
     if (filter.type === "exclude") return matchFilter(current, filter, false);
     if (filter.type === "rename") return renameProxies(current, filter);
-    if (filter.type === "dedupe") return dedupeByFields(current, filter.fields || [filter.field || "name"]);
+    if (filter.type === "delete-field") return deleteFieldMatches(current, filter);
+    if (filter.type === "dedupe") return handleDuplicateProxies(current, filter);
     if (filter.type === "sort") return sortProxies(current, filter.direction || "asc");
+    if (filter.type === "regex-sort") return regexSortProxies(current, filter);
+    if (filter.type === "flag") return flagProxies(current, filter);
+    if (filter.type === "quick") return applyQuickSettings(current, filter);
     return current;
   }, proxies);
 }
@@ -327,49 +419,257 @@ function matchFilter(proxies: ProxyNode[], filter: FilterRule, keepMatches: bool
   const pattern = compileRegex(filter.pattern);
   const field = filter.field || "name";
   return proxies.filter((proxy) => {
-    const matched = pattern.test(String(proxy[field] || ""));
+    const matched = pattern.test(String(getByPath(proxy, field) || ""));
     return keepMatches ? matched : !matched;
   });
 }
 
 function renameProxies(proxies: ProxyNode[], filter: FilterRule) {
   if (!filter.pattern) return proxies;
-  const pattern = compileRegex(filter.pattern);
+  const pattern = compileRegex(filter.pattern, "g");
   const replacement = filter.replacement || "";
   const field = filter.field || "name";
-  return proxies.map((proxy) => ({ ...proxy, [field]: String(proxy[field] || "").replace(pattern, replacement) }));
+  return proxies.map((proxy) => setByPath({ ...proxy }, field, String(getByPath(proxy, field) || "").replace(pattern, replacement).trim()));
 }
 
-function compileRegex(input: string) {
-  if (input.startsWith("(?i)")) return new RegExp(input.slice(4), "i");
-  return new RegExp(input);
+function deleteFieldMatches(proxies: ProxyNode[], filter: FilterRule) {
+  const patterns = filter.patterns || (filter.pattern ? [filter.pattern] : []);
+  if (patterns.length === 0) return proxies;
+  const field = filter.field || "name";
+  return proxies.map((proxy) => {
+    const next = { ...proxy };
+    const value = patterns.reduce((name, pattern) => name.replace(compileRegex(String(pattern), "g"), ""), String(getByPath(next, field) || ""));
+    return setByPath(next, field, value.trim());
+  });
 }
 
-function dedupeByFields(proxies: ProxyNode[], fields: unknown[]) {
-  const normalizedFields = fields.map(String);
+function handleDuplicateProxies(proxies: ProxyNode[], filter: FilterRule) {
+  const fields = normalizeDedupeFields(filter.fields || [filter.field || "name"]);
+  if (filter.action === "rename") return renameDuplicateProxies(proxies, fields, filter);
+  return deleteDuplicateProxies(proxies, fields);
+}
+
+function normalizeDedupeFields(fields: unknown) {
+  const list = Array.isArray(fields) ? fields : [fields];
+  return list.map(String).filter(Boolean);
+}
+
+function deleteDuplicateProxies(proxies: ProxyNode[], fields: string[]) {
   const seen = new Set<string>();
   return proxies.filter((proxy) => {
-    const key = normalizedFields.map((field) => String(proxy[field] || "")).join("\n");
+    const key = duplicateKey(proxy, fields);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
+function renameDuplicateProxies(proxies: ProxyNode[], fields: string[], filter: FilterRule) {
+  const counters = new Map<string, number>();
+  for (const proxy of proxies) {
+    const key = duplicateKey(proxy, fields);
+    counters.set(key, (counters.get(key) || 0) + 1);
+  }
+
+  const increments = new Map<string, number>();
+  const maxLen = Math.max(1, ...[...counters.values()].map((count) => String(count).length));
+  const digits = String(filter.template || "0 1 2 3 4 5 6 7 8 9").split(/\s+/).filter(Boolean);
+  const link = String(filter.link ?? "-");
+  const position = filter.position === "front" ? "front" : "back";
+
+  return proxies.map((proxy) => {
+    const key = duplicateKey(proxy, fields);
+    if ((counters.get(key) || 0) <= 1) return proxy;
+    const count = (increments.get(key) || 0) + 1;
+    increments.set(key, count);
+    const suffix = formatDuplicateNumber(count, maxLen, digits);
+    return {
+      ...proxy,
+      name: position === "front" ? `${suffix}${link}${proxy.name}` : `${proxy.name}${link}${suffix}`,
+    };
+  });
+}
+
+function duplicateKey(proxy: ProxyNode, fields: string[]) {
+  return fields.map((field) => String(getByPath(proxy, field) || "-")).join("\n");
+}
+
+function formatDuplicateNumber(input: number, minLength: number, digits: string[]) {
+  const normalizedDigits = digits.length >= 10 ? digits : ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+  let count = input;
+  let output = "";
+  do {
+    output = normalizedDigits[count % 10] + output;
+    count = Math.floor(count / 10);
+  } while (count > 0);
+  while (output.length < minLength) output = normalizedDigits[0] + output;
+  return output;
+}
+
 function sortProxies(proxies: ProxyNode[], direction: string) {
+  if (direction === "random") return shuffleProxies(proxies);
   return [...proxies].sort((a, b) => {
     const result = a.name.localeCompare(b.name, "zh-Hans-CN");
     return direction === "desc" ? -result : result;
   });
 }
 
-function dedupeByName(proxies: ProxyNode[]) {
+function regexSortProxies(proxies: ProxyNode[], filter: FilterRule) {
+  const expressions = (filter.expressions || filter.patterns || (filter.pattern ? [filter.pattern] : []))
+    .map(String)
+    .filter(Boolean)
+    .map((pattern) => compileRegex(pattern));
+  const direction = filter.direction || "asc";
+  if (expressions.length === 0) return sortProxies(proxies, direction);
+
+  return [...proxies].sort((a, b) => {
+    const left = regexOrder(expressions, a.name);
+    const right = regexOrder(expressions, b.name);
+    if (left && !right) return -1;
+    if (right && !left) return 1;
+    if (left && right) return left - right;
+    if (direction === "original") return 0;
+    return sortProxies([a, b], direction)[0] === a ? -1 : 1;
+  });
+}
+
+function regexOrder(expressions: RegExp[], name: string) {
+  for (let index = 0; index < expressions.length; index += 1) {
+    if (expressions[index].test(name)) return index + 1;
+  }
+  return 0;
+}
+
+function shuffleProxies(proxies: ProxyNode[]) {
+  const next = [...proxies];
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [next[index], next[randomIndex]] = [next[randomIndex], next[index]];
+  }
+  return next;
+}
+
+function flagProxies(proxies: ProxyNode[], filter: FilterRule) {
+  const mode = String(filter.mode || filter.action || "add");
+  const tw = String(filter.tw || "cn");
+  return proxies.map((proxy) => {
+    const cleanName = removeFlag(proxy.name).trim();
+    if (mode === "remove") return { ...proxy, name: cleanName };
+    const flag = normalizeTaiwanFlag(detectFlag(proxy.name), tw);
+    return { ...proxy, name: `${flag} ${cleanName}`.trim() };
+  });
+}
+
+function applyQuickSettings(proxies: ProxyNode[], filter: FilterRule) {
+  let next = proxies;
+  if (stateEnabled(filter.useless)) {
+    next = next.filter(isUsefulProxy);
+  }
+
+  return next.map((proxy) => {
+    const output = { ...proxy };
+    applyState(output, "udp", filter.udp);
+    applyState(output, "tfo", filter.tfo);
+    applyState(output, "fast-open", filter.tfo);
+    applyState(output, "skip-cert-verify", filter.scert ?? filter["skip-cert-verify"]);
+    if (output.type === "vmess") applyState(output, "aead", filter["vmess aead"]);
+    return output;
+  });
+}
+
+function applyState(proxy: ProxyNode, key: string, value: unknown) {
+  if (stateEnabled(value)) proxy[key] = true;
+  if (stateDisabled(value)) proxy[key] = false;
+}
+
+function stateEnabled(value: unknown) {
+  return value === true || value === "ENABLED" || value === "enabled";
+}
+
+function stateDisabled(value: unknown) {
+  return value === false || value === "DISABLED" || value === "disabled";
+}
+
+function isUsefulProxy(proxy: ProxyNode) {
+  if (!Number.isFinite(proxy.port) || Number(proxy.port) <= 0 || Number(proxy.port) > 65535) return false;
+  if (proxy.cipher && !isAscii(String(proxy.cipher))) return false;
+  if (proxy.password && !isAscii(String(proxy.password))) return false;
+  const network = String(proxy.network || "");
+  const host = network ? getByPath(proxy, `${network}-opts.headers.Host`) || getByPath(proxy, `${network}-opts.headers.host`) : undefined;
+  const hosts = Array.isArray(host) ? host : [host];
+  if (hosts.some((item) => item && !isAscii(String(item)))) return false;
+  return !/网址|流量|时间|应急|过期|官网|剩余|Bandwidth|expire/i.test(proxy.name);
+}
+
+function isAscii(input: string) {
+  return /^[\x00-\x7F]+$/.test(input);
+}
+
+function detectFlag(name: string) {
+  const text = name.toLowerCase();
+  const rules: Array<[RegExp, string]> = [
+    [/香港|港|hong\s*kong|\bhk\b/, "🇭🇰"],
+    [/台湾|台灣|taiwan|\btw\b/, "🇹🇼"],
+    [/新加坡|狮城|獅城|singapore|\bsg\b/, "🇸🇬"],
+    [/日本|东京|東京|大阪|japan|tokyo|osaka|\bjp\b/, "🇯🇵"],
+    [/美国|美國|洛杉矶|洛杉磯|纽约|紐約|united\s*states|los\s*angeles|new\s*york|\bus\b|\busa\b/, "🇺🇸"],
+    [/英国|英國|伦敦|倫敦|united\s*kingdom|london|\buk\b/, "🇬🇧"],
+    [/德国|德國|法兰克福|法蘭克福|germany|frankfurt|\bde\b/, "🇩🇪"],
+    [/韩国|韓國|首尔|首爾|korea|seoul|\bkr\b/, "🇰🇷"],
+  ];
+  return rules.find(([pattern]) => pattern.test(text))?.[1] || "🏳️";
+}
+
+function removeFlag(name: string) {
+  return name.replace(/^[\p{Regional_Indicator}\uFE0F\u200D\s]+/u, "").replace(/^[🏳️]+\s*/u, "");
+}
+
+function normalizeTaiwanFlag(flag: string, mode: string) {
+  if (flag !== "🇹🇼") return flag;
+  if (mode === "ws") return "🇼🇸";
+  if (mode === "tw") return "🇹🇼";
+  return "🇨🇳";
+}
+
+function ensureUniqueProxyNames(proxies: ProxyNode[]) {
   const seen = new Map<string, number>();
   return proxies.map((proxy) => {
     const count = seen.get(proxy.name) || 0;
     seen.set(proxy.name, count + 1);
     return count === 0 ? proxy : { ...proxy, name: `${proxy.name}-${count + 1}` };
   });
+}
+
+function compileRegex(input: string, flags = "") {
+  const normalizedFlags = [...new Set(flags.split(""))].join("");
+  if (input.startsWith("(?i)")) return new RegExp(input.slice(4), [...new Set(`i${normalizedFlags}`.split(""))].join(""));
+  return new RegExp(input, normalizedFlags);
+}
+
+function getByPath(input: Record<string, unknown>, path: string) {
+  return path.split(".").reduce<unknown>((current, key) => {
+    if (!current || typeof current !== "object") return undefined;
+    return (current as Record<string, unknown>)[key];
+  }, input);
+}
+
+function setByPath<T extends Record<string, unknown>>(input: T, path: string, value: unknown) {
+  const parts = path.split(".");
+  let current: Record<string, unknown> = input;
+  for (const part of parts.slice(0, -1)) {
+    if (!current[part] || typeof current[part] !== "object" || Array.isArray(current[part])) current[part] = {};
+    current = current[part] as Record<string, unknown>;
+  }
+  current[parts[parts.length - 1]] = value;
+  return input;
+}
+
+function formatInvalidLocalContentError(raw: string) {
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const samples = lines.slice(0, 5).map((line, index) => `${index + 1}. ${line.slice(0, 80)}`);
+  return ["No valid proxy nodes found. Supported input: URI lines, Mihomo YAML, or JSON proxy arrays.", samples.length ? `First lines:\n${samples.join("\n")}` : ""]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function renderMihomoYaml(proxies: ProxyNode[], requestUrl: URL, template?: RoutingTemplateConfig) {

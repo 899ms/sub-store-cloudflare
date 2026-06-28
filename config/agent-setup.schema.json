@@ -61,15 +61,34 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "type": { "enum": ["include", "exclude", "rename", "dedupe", "sort"] },
+        "type": { "enum": ["include", "exclude", "rename", "delete-field", "dedupe", "sort", "regex-sort", "flag", "quick"] },
         "field": { "type": "string" },
         "fields": {
           "type": "array",
           "items": { "type": "string" }
         },
         "pattern": { "type": "string" },
+        "patterns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "expressions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "replacement": { "type": "string" },
-        "direction": { "enum": ["asc", "desc"] }
+        "direction": { "enum": ["asc", "desc", "random", "original"] },
+        "action": { "enum": ["delete", "rename"] },
+        "link": { "type": "string" },
+        "position": { "enum": ["front", "back"] },
+        "template": { "type": "string" },
+        "mode": { "enum": ["add", "remove"] },
+        "tw": { "enum": ["cn", "ws", "tw"] },
+        "useless": { "enum": ["DEFAULT", "ENABLED", "DISABLED"] },
+        "udp": { "enum": ["DEFAULT", "ENABLED", "DISABLED"] },
+        "scert": { "enum": ["DEFAULT", "ENABLED", "DISABLED"] },
+        "tfo": { "enum": ["DEFAULT", "ENABLED", "DISABLED"] },
+        "vmess aead": { "enum": ["DEFAULT", "ENABLED", "DISABLED"] }
       },
       "required": ["type"]
     },

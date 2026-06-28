@@ -129,7 +129,17 @@ https://substore.example.com/download/collection/<collection-id>/uri?token=<down
 
 管理界面的复制按钮会读取 Worker Secret 里的下载 token，并生成可直接复制到客户端的链接。
 
-## 8. 导入初始配置
+## 8. 备份与恢复
+
+管理界面的「我的」页面可以导出和恢复完整配置，包括订阅源、组合订阅、规则模板和界面设置。也可以直接访问：
+
+```text
+https://substore.example.com/api/storage?token=<admin-token>
+```
+
+恢复入口是 `POST /api/storage`，请求体可以是完整备份 JSON，也可以是 `{ "content": "<backup-json>" }`。
+
+## 9. 导入初始配置
 
 如果使用 AI Agent 准备订阅源和组合订阅，配置会写在：
 
@@ -176,7 +186,7 @@ pnpm run access:render
 CLOUDFLARE_API_TOKEN=... pnpm run access:apply
 ```
 
-## 9. 发布前检查
+## 10. 发布前检查
 
 ```bash
 pnpm run check:release

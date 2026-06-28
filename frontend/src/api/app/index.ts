@@ -58,9 +58,16 @@ const normalizeUiProcess = (process: unknown): JsonMap[] => {
 
 const toApiFilters = (process: unknown) => {
   return normalizeUiProcess(process).flatMap((item) => {
-    if (['include', 'exclude', 'rename', 'dedupe', 'sort'].includes(item.type)) {
+    if (['include', 'exclude', 'rename', 'delete-field', 'dedupe', 'sort', 'regex-sort', 'flag', 'quick'].includes(item.type)) {
       const { id, customName, disabled, ...filter } = item;
       return [filter];
+    }
+
+    if (item.type === 'Quick Setting Operator') {
+      return [{
+        type: 'quick',
+        ...(item.args && typeof item.args === 'object' ? item.args : {}),
+      }];
     }
 
     if (item.type === 'Region Filter') {
@@ -86,7 +93,8 @@ const toApiFilters = (process: unknown) => {
 
     if (item.type === 'Regex Delete Operator') {
       const pattern = regexUnion(Array.isArray(item.args) ? item.args : []);
-      return pattern ? [{ type: 'exclude', field: 'name', pattern }] : [];
+      const patterns = Array.isArray(item.args) ? item.args.map(String).filter(Boolean) : [];
+      return pattern ? [{ type: 'delete-field', field: 'name', pattern, patterns }] : [];
     }
 
     if (item.type === 'Regex Rename Operator') {
@@ -101,14 +109,36 @@ const toApiFilters = (process: unknown) => {
         .filter(filter => filter.pattern);
     }
 
+    if (item.type === 'Regex Sort Operator') {
+      const expressions = Array.isArray(item.args?.expressions)
+        ? item.args.expressions.map(String).filter(Boolean)
+        : Array.isArray(item.args)
+          ? item.args.map(String).filter(Boolean)
+          : [];
+      if (expressions.length === 0) return [];
+      const direction = ['asc', 'desc', 'original'].includes(item.args?.order) ? item.args.order : 'asc';
+      return [{ type: 'regex-sort', expressions, direction }];
+    }
+
     if (item.type === 'Handle Duplicate Operator') {
       const fields = Array.isArray(item.args?.field) && item.args.field.length > 0 ? item.args.field.map(String) : ['name'];
-      return [{ type: 'dedupe', fields }];
+      return [{
+        type: 'dedupe',
+        fields,
+        action: item.args?.action === 'delete' ? 'delete' : 'rename',
+        link: item.args?.link || '-',
+        position: item.args?.position === 'front' ? 'front' : 'back',
+        template: item.args?.template || '0 1 2 3 4 5 6 7 8 9',
+      }];
     }
 
     if (item.type === 'Sort Operator') {
-      if (item.args !== 'asc' && item.args !== 'desc') return [];
+      if (!['asc', 'desc', 'random'].includes(item.args)) return [];
       return [{ type: 'sort', direction: item.args }];
+    }
+
+    if (item.type === 'Flag Operator') {
+      return [{ type: 'flag', mode: item.args?.mode || 'add', tw: item.args?.tw || 'cn' }];
     }
 
     return [];
@@ -145,15 +175,36 @@ const fromApiFilters = (filters: unknown): UiProcess[] => {
         return;
       }
 
+      if (filter.type === 'delete-field') {
+        output.push({
+          id: newUiId(),
+          type: 'Regex Delete Operator',
+          args: Array.isArray(filter.patterns) ? filter.patterns.map(String) : filter.pattern ? [String(filter.pattern)] : [],
+        });
+        return;
+      }
+
+      if (filter.type === 'regex-sort') {
+        output.push({
+          id: newUiId(),
+          type: 'Regex Sort Operator',
+          args: {
+            order: filter.direction || 'asc',
+            expressions: Array.isArray(filter.expressions) ? filter.expressions.map(String) : [],
+          },
+        });
+        return;
+      }
+
       if (filter.type === 'dedupe') {
         output.push({
           id: newUiId(),
           type: 'Handle Duplicate Operator',
           args: {
-            action: 'delete',
-            link: '-',
-            position: 'back',
-            template: '0 1 2 3 4 5 6 7 8 9',
+            action: filter.action === 'delete' ? 'delete' : 'rename',
+            link: filter.link || '-',
+            position: filter.position === 'front' ? 'front' : 'back',
+            template: filter.template || '0 1 2 3 4 5 6 7 8 9',
             field: Array.isArray(filter.fields) ? filter.fields.map(String) : [String(filter.field || 'name')],
           },
         });
@@ -164,7 +215,34 @@ const fromApiFilters = (filters: unknown): UiProcess[] => {
         output.push({
           id: newUiId(),
           type: 'Sort Operator',
-          args: filter.direction === 'desc' ? 'desc' : 'asc',
+          args: filter.direction === 'random' ? 'random' : filter.direction === 'desc' ? 'desc' : 'asc',
+        });
+        return;
+      }
+
+      if (filter.type === 'flag') {
+        output.push({
+          id: newUiId(),
+          type: 'Flag Operator',
+          args: {
+            mode: filter.mode || 'add',
+            tw: filter.tw || 'cn',
+          },
+        });
+        return;
+      }
+
+      if (filter.type === 'quick') {
+        output.unshift({
+          id: newUiId(),
+          type: 'Quick Setting Operator',
+          args: {
+            useless: filter.useless || 'DISABLED',
+            udp: filter.udp || 'DEFAULT',
+            scert: filter.scert || filter['skip-cert-verify'] || 'DEFAULT',
+            tfo: filter.tfo || 'DEFAULT',
+            'vmess aead': filter['vmess aead'] || 'DEFAULT',
+          },
         });
       }
     });

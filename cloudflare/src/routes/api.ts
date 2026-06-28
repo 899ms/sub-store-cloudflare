@@ -1,18 +1,23 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { parse as parseYaml } from "yaml";
 import { failed, requireAdmin, success } from "../lib/http";
 import {
   deleteCollection,
   deleteSource,
   deleteTemplate,
   ensureSchema,
+  exportStorage,
   getAppConfig,
   getCollection,
+  getSettings,
   getSource,
   getSubscriptionSources,
   getTemplate,
+  importStorage,
   sortCollections,
   sortSources,
+  updateSettings,
   upsertCollection,
   upsertSource,
   upsertTemplate,
@@ -63,10 +68,24 @@ apiRoutes.use("*", async (c, next) => {
 });
 
 apiRoutes.get("/env", async (c) => success(c, envPayload(c.env)));
-apiRoutes.get("/settings", async (c) => success(c, defaultSettings(c.env)));
+apiRoutes.get("/settings", async (c) => success(c, mergeSettings(defaultSettings(c.env), await getSettings(c.env))));
 apiRoutes.patch("/settings", async (c) => {
   const input = await c.req.json<JsonMap>().catch(() => ({}));
-  return success(c, mergeSettings(defaultSettings(c.env), input));
+  const settings = await updateSettings(c.env, input);
+  return success(c, mergeSettings(defaultSettings(c.env), settings));
+});
+apiRoutes.get("/storage", async (c) => {
+  const payload = await exportStorage(c.env);
+  return new Response(JSON.stringify(payload, null, 2), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "content-disposition": `attachment; filename="sub-store-cloudflare-backup-${new Date().toISOString().slice(0, 10)}.json"`,
+    },
+  });
+});
+apiRoutes.post("/storage", async (c) => {
+  const input = await parseJsonOrText(c);
+  return success(c, await importStorage(c.env, input));
 });
 
 apiRoutes.get("/sources", async (c) => success(c, (await getAppConfig(c.env)).sources.map(toApiSource)));
@@ -121,7 +140,7 @@ apiRoutes.delete("/collections/:name", async (c) => success(c, await deleteColle
 
 apiRoutes.get("/templates", async (c) => success(c, (await getAppConfig(c.env)).templates.map(toApiTemplate)));
 apiRoutes.post("/templates", async (c) => {
-  const input = await c.req.json<JsonMap>();
+  const input = await parseJsonOrText(c) as JsonMap;
   if (!stringValue(input.name || input.id)) return failed(c, "Template name is required");
   return success(c, toApiTemplate(await upsertTemplate(c.env, fromApiTemplate(input))));
 });
@@ -133,7 +152,7 @@ apiRoutes.get("/templates/:name", async (c) => {
 apiRoutes.patch("/templates/:name", async (c) => {
   const existing = await getTemplate(c.env, c.req.param("name"));
   if (!existing) return failed(c, "Template not found", 404);
-  return success(c, toApiTemplate(await upsertTemplate(c.env, { ...fromApiTemplate(await c.req.json()), id: existing.id })));
+  return success(c, toApiTemplate(await upsertTemplate(c.env, { ...fromApiTemplate(await parseJsonOrText(c) as JsonMap), id: existing.id })));
 });
 apiRoutes.delete("/templates/:name", async (c) => {
   try {
@@ -151,7 +170,7 @@ apiRoutes.post("/preview/source", async (c) => {
       return success(c, { original: nodes, processed: nodes });
     }
     const source = toSubscriptionSource(input);
-    return success(c, await previewSubscription({ source, sources: [source] }));
+    return success(c, await previewSubscription({ source, sources: [source], settings: await getSettings(c.env) }));
   } catch (error) {
     return failed(c, error instanceof Error ? error.message : String(error), 400);
   }
@@ -160,7 +179,7 @@ apiRoutes.post("/preview/source", async (c) => {
 apiRoutes.post("/preview/collection", async (c) => {
   const input = await c.req.json<JsonMap>();
   try {
-    return success(c, await previewSubscription({ collection: toSubscriptionCollection(input), sources: await getSubscriptionSources(c.env) }));
+    return success(c, await previewSubscription({ collection: toSubscriptionCollection(input), sources: await getSubscriptionSources(c.env), settings: await getSettings(c.env) }));
   } catch (error) {
     return failed(c, error instanceof Error ? error.message : String(error), 400);
   }
@@ -333,7 +352,7 @@ function fromApiTemplate(input: JsonMap): Partial<TemplateRecord> {
     id: stringValue(input.id || input.name),
     name: stringValue(input.name || input.id),
     target: normalizeTargetValue(input.target),
-    config: objectValue(input.config),
+    config: parseTemplateConfig(input.config ?? input.content),
   };
 }
 
@@ -392,6 +411,31 @@ function normalizeTargetValue(input: unknown): SubscriptionTarget {
 async function stringListBody(c: ApiContext) {
   const input = await c.req.json().catch(() => []);
   return Array.isArray(input) ? input.map(String).filter(Boolean) : [];
+}
+
+async function parseJsonOrText(c: ApiContext) {
+  const contentType = c.req.header("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return c.req.json().catch(() => ({}));
+  }
+  const text = await c.req.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as JsonMap;
+  } catch {
+    return { content: text };
+  }
+}
+
+function parseTemplateConfig(input: unknown) {
+  if (input && typeof input === "object" && !Array.isArray(input)) return input as JsonMap;
+  if (typeof input !== "string" || !input.trim()) return {};
+  try {
+    const parsed = input.trim().startsWith("{") ? JSON.parse(input) : parseYaml(input);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as JsonMap : {};
+  } catch {
+    return {};
+  }
 }
 
 type FlowRequest = {

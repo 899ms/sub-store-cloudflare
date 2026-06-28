@@ -1,4 +1,5 @@
 import { shallowRef, nextTick } from 'vue';
+import ActionRadio from '@/views/editor/components/ActionRadio.vue';
 import FilterSelect from '@/views/editor/components/FilterSelect.vue';
 import Regex from '@/views/editor/components/Regex.vue';
 import HandleDuplicate from '@/views/editor/components/HandleDuplicate.vue';
@@ -28,6 +29,10 @@ export const addItem = (
 
   actionsChecked.push([id, previewEnabled]);
   switch (type) {
+    case 'Flag Operator':
+      obj.component = shallowRef(ActionRadio);
+      form.process.push({ id, type, args: args ?? { mode: 'add', tw: 'cn' }, customName });
+      break;
     case 'Sort Operator':
       obj.component = shallowRef(Sort);
       form.process.push({ id, type, args: args ?? 'asc', customName });
@@ -41,10 +46,16 @@ export const addItem = (
       obj.component = shallowRef(Regex);
       form.process.push({ id, type, args: args ?? { keep: true, regex: [] }, customName });
       break;
+    case 'Regex Sort Operator':
     case 'Regex Delete Operator':
     case 'Regex Rename Operator':
       obj.component = shallowRef(Regex);
-      form.process.push({ id, type, args: args ?? [] , customName});
+      form.process.push({
+        id,
+        type,
+        args: args ?? (type === 'Regex Sort Operator' ? { order: 'asc', expressions: [] } : []),
+        customName,
+      });
       break;
     case 'Handle Duplicate Operator':
       obj.component = shallowRef(HandleDuplicate);

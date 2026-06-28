@@ -1,16 +1,16 @@
 <template>
   <div class="my-page-wrapper">
-    <section class="status-panel">
-      <div class="status-header">
+    <section class="profile-block">
+      <div class="profile-main">
         <nut-avatar
-          size="56"
+          size="64"
           bg-color="var(--card-color)"
           :url="icon"
           class="auto-reverse"
         />
-        <div class="status-title">
-          <h1>{{ appName }}</h1>
-          <p>{{ runtimeLabel }}</p>
+        <div class="profile-text">
+          <p class="title">{{ appName }}</p>
+          <p class="des">订阅聚合、节点处理和云端规则模板</p>
         </div>
       </div>
       <div class="status-grid">
@@ -29,25 +29,69 @@
       </div>
     </section>
 
-    <section class="settings-panel">
-      <div class="settings-row">
-        <div>
-          <h2>语言</h2>
-          <p>切换管理界面的显示语言。</p>
+    <section class="config-card storage-card">
+      <div class="title-wrapper">
+        <h1>备份与恢复</h1>
+        <div class="storage-actions">
+          <input ref="fileInput" type="file" accept="application/json,.json" @change="restoreFromFile" />
+          <nut-button plain type="primary" size="small" :loading="restoreIsLoading" @click="selectBackupFile">
+            <font-awesome-icon v-if="!restoreIsLoading" icon="fa-solid fa-cloud-arrow-up" />
+            恢复
+          </nut-button>
+          <a :href="backupUrl" target="_blank" rel="noreferrer">
+            <nut-button type="primary" size="small">
+              <font-awesome-icon icon="fa-solid fa-cloud-arrow-down" />
+              备份
+            </nut-button>
+          </a>
         </div>
+      </div>
+      <p class="card-desc">导出和恢复订阅源、组合订阅、规则模板与界面设置。</p>
+    </section>
+
+    <section class="config-card">
+      <div class="title-wrapper" @click="requestEditing ? cancelRequestEdit() : startRequestEdit()">
+        <h1>请求设置</h1>
+        <div class="config-btn-wrapper">
+          <template v-if="requestEditing">
+            <nut-button class="cancel-btn" plain type="info" size="mini" :disabled="requestSaving" @click.stop="cancelRequestEdit">
+              <font-awesome-icon icon="fa-solid fa-ban" />
+              取消
+            </nut-button>
+            <nut-button class="save-btn" type="primary" size="mini" :loading="requestSaving" @click.stop="saveRequestSettings">
+              <font-awesome-icon v-if="!requestSaving" icon="fa-solid fa-floppy-disk" />
+              保存
+            </nut-button>
+          </template>
+          <nut-icon v-else class="right-icon" name="right"></nut-icon>
+        </div>
+      </div>
+      <div v-if="requestEditing" class="config-input-wrapper">
+        <nut-input class="input" v-model="requestForm.defaultUserAgent" placeholder="默认 User-Agent" type="text" input-align="left" />
+        <nut-input class="input" v-model="requestForm.defaultFlowUserAgent" placeholder="流量信息 User-Agent" type="text" input-align="left" />
+        <nut-input class="input" v-model="requestForm.defaultTimeout" placeholder="请求超时，单位毫秒" type="number" input-align="left" />
+        <nut-input class="input" v-model="requestForm.backendRequestConcurrency" placeholder="远程订阅并发数" type="number" input-align="left" />
+        <nut-input class="input" v-model="requestForm.backendRequestConcurrencyWaitTime" placeholder="并发请求间隔，单位毫秒" type="number" input-align="left" />
+      </div>
+      <p v-else class="card-desc">当前远程订阅拉取并发 {{ settingsStore.backendRequestConcurrency || "3" }}，超时 {{ settingsStore.defaultTimeout || "30000" }}ms。</p>
+    </section>
+
+    <section class="config-card">
+      <div class="title-wrapper">
+        <h1>界面</h1>
         <LanguageSwitcherButton />
       </div>
       <div class="settings-row">
         <div>
-          <h2>简洁模式</h2>
-          <p>控制订阅列表和编辑器的展示密度。</p>
+          <p class="row-title">简洁模式</p>
+          <p class="row-desc">控制订阅列表和编辑器的展示密度。</p>
         </div>
         <nut-switch v-model="simpleMode" @change="saveAppearance" />
       </div>
       <div class="settings-row">
         <div>
-          <h2>宽屏窄栏</h2>
-          <p>在桌面宽屏下使用移动端式导航。</p>
+          <p class="row-title">宽屏窄栏</p>
+          <p class="row-desc">桌面宽屏下使用移动端式导航。</p>
         </div>
         <nut-switch v-model="wideScreenNarrowMode" @change="saveAppearance" />
       </div>
@@ -57,18 +101,35 @@
 
 <script lang="ts" setup>
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
+import { Dialog } from "@nutui/nutui";
 
 import LanguageSwitcherButton from "@/components/LanguageSwitcherButton.vue";
+import { useSettingsApi } from "@/api/settings";
 import { useBackend } from "@/hooks/useBackend";
+import { useAppNotifyStore } from "@/store/appNotify";
 import { useSettingsStore } from "@/store/settings";
 
 const settingsStore = useSettingsStore();
+const settingsApi = useSettingsApi();
+const { showNotify } = useAppNotifyStore();
 const { appearanceSetting } = storeToRefs(settingsStore);
 const { icon, env } = useBackend();
 
+const fileInput = ref<HTMLInputElement | null>(null);
+const restoreIsLoading = ref(false);
+const requestEditing = ref(false);
+const requestSaving = ref(false);
 const simpleMode = ref(Boolean(appearanceSetting.value.isSimpleMode));
 const wideScreenNarrowMode = ref(Boolean(appearanceSetting.value.useNarrowModeOnWideScreen));
+
+const requestForm = reactive({
+  defaultUserAgent: "",
+  defaultFlowUserAgent: "",
+  defaultTimeout: "",
+  backendRequestConcurrency: "",
+  backendRequestConcurrencyWaitTime: "",
+});
 
 const appName = computed(() => {
   return env.value?.app
@@ -76,8 +137,11 @@ const appName = computed(() => {
     || "Sub-Store Cloudflare";
 });
 
-const runtimeLabel = computed(() => {
-  return "订阅聚合、节点过滤和云端规则模板";
+const backupUrl = computed(() => {
+  const url = new URL("/api/storage", window.location.origin);
+  const token = localStorage.getItem("substore_admin_token");
+  if (token) url.searchParams.set("token", token);
+  return url.toString();
 });
 
 watch(
@@ -89,12 +153,74 @@ watch(
   { deep: true },
 );
 
+const syncRequestForm = () => {
+  requestForm.defaultUserAgent = settingsStore.defaultUserAgent || "";
+  requestForm.defaultFlowUserAgent = settingsStore.defaultFlowUserAgent || "";
+  requestForm.defaultTimeout = settingsStore.defaultTimeout || "";
+  requestForm.backendRequestConcurrency = settingsStore.backendRequestConcurrency || "";
+  requestForm.backendRequestConcurrencyWaitTime = settingsStore.backendRequestConcurrencyWaitTime || "";
+};
+
+const startRequestEdit = () => {
+  syncRequestForm();
+  requestEditing.value = true;
+};
+
+const cancelRequestEdit = () => {
+  syncRequestForm();
+  requestEditing.value = false;
+};
+
+const saveRequestSettings = async () => {
+  requestSaving.value = true;
+  try {
+    const saved = await settingsStore.changeSettings({ ...requestForm });
+    requestEditing.value = !saved;
+  } finally {
+    requestSaving.value = false;
+  }
+};
+
 const saveAppearance = async () => {
   await settingsStore.changeAppearanceSetting({
     appearanceSetting: {
       ...appearanceSetting.value,
       isSimpleMode: simpleMode.value,
       useNarrowModeOnWideScreen: wideScreenNarrowMode.value,
+    },
+  });
+};
+
+const selectBackupFile = () => {
+  fileInput.value?.click();
+};
+
+const restoreFromFile = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  target.value = "";
+  if (!file) return;
+
+  Dialog({
+    title: "恢复备份",
+    content: "恢复会覆盖同名订阅源、组合订阅、规则模板和设置。建议先导出当前备份。",
+    popClass: "auto-dialog",
+    okText: "恢复",
+    cancelText: "取消",
+    closeOnClickOverlay: true,
+    onOk: async () => {
+      restoreIsLoading.value = true;
+      try {
+        const content = await file.text();
+        const res = await settingsApi.restoreSettings({ content });
+        if (res?.data?.status !== "success") throw new Error("restore failed");
+        await settingsStore.fetchSettings();
+        showNotify({ type: "success", title: "恢复成功" });
+      } catch (error) {
+        showNotify({ type: "danger", title: `恢复失败\n${error instanceof Error ? error.message : String(error)}` });
+      } finally {
+        restoreIsLoading.value = false;
+      }
     },
   });
 };
@@ -109,35 +235,35 @@ const saveAppearance = async () => {
   gap: 14px;
 }
 
-.status-panel,
-.settings-panel {
+.profile-block,
+.config-card {
   border-radius: var(--item-card-radios);
   background: var(--card-color);
   color: var(--second-text-color);
   overflow: hidden;
 }
 
-.status-panel {
+.profile-block {
   padding: 18px;
 }
 
-.status-header {
+.profile-main {
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
-.status-title {
+.profile-text {
   min-width: 0;
 
-  h1 {
+  .title {
     margin: 0;
     font-size: 18px;
     line-height: 1.35;
     color: var(--primary-text-color);
   }
 
-  p {
+  .des {
     margin: 4px 0 0;
     font-size: 13px;
     color: var(--comment-text-color);
@@ -177,35 +303,91 @@ const saveAppearance = async () => {
   }
 }
 
+.title-wrapper {
+  min-height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--divider-color);
+  cursor: pointer;
+
+  h1 {
+    margin: 0;
+    font-size: 15px;
+    color: var(--primary-text-color);
+  }
+}
+
+.storage-card .title-wrapper {
+  cursor: default;
+}
+
+.storage-actions,
+.config-btn-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input {
+    display: none;
+  }
+}
+
+.card-desc {
+  margin: 0;
+  padding: 12px 16px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--comment-text-color);
+}
+
+.config-input-wrapper {
+  padding: 8px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .input {
+    border-bottom: 1px solid var(--divider-color);
+  }
+}
+
 .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--divider-color);
 
   &:last-child {
     border-bottom: 0;
   }
+}
 
-  h2 {
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.35;
-    color: var(--primary-text-color);
-  }
+.row-title {
+  margin: 0;
+  font-size: 14px;
+  color: var(--primary-text-color);
+}
 
-  p {
-    margin: 4px 0 0;
-    font-size: 12px;
-    color: var(--comment-text-color);
-  }
+.row-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--comment-text-color);
 }
 
 @media screen and (max-width: 430px) {
   .status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .title-wrapper {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px 16px;
   }
 }
 </style>

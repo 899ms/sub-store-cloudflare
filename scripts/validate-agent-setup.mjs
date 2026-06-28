@@ -149,7 +149,7 @@ function validateFilters(filters, label) {
       continue;
     }
 
-    if (!["include", "exclude", "rename", "dedupe", "sort"].includes(filter.type)) {
+    if (!["include", "exclude", "rename", "delete-field", "dedupe", "sort", "regex-sort", "flag", "quick"].includes(filter.type)) {
       errors.push(`${label}[${index}].type is unsupported: ${filter.type}`);
       continue;
     }
@@ -157,11 +157,26 @@ function validateFilters(filters, label) {
     if ((filter.type === "include" || filter.type === "exclude" || filter.type === "rename") && !stringValue(filter.pattern)) {
       errors.push(`${label}[${index}].pattern is required for ${filter.type}`);
     }
+    if (filter.type === "delete-field" && !stringValue(filter.pattern) && array(filter.patterns).length === 0) {
+      errors.push(`${label}[${index}] needs pattern or patterns for delete-field`);
+    }
     if (filter.type === "dedupe" && array(filter.fields).length === 0 && !stringValue(filter.field)) {
       errors.push(`${label}[${index}] needs fields or field for dedupe`);
     }
-    if (filter.type === "sort" && filter.direction && !["asc", "desc"].includes(filter.direction)) {
-      errors.push(`${label}[${index}].direction must be asc or desc`);
+    if (filter.type === "dedupe" && filter.action && !["delete", "rename"].includes(filter.action)) {
+      errors.push(`${label}[${index}].action must be delete or rename`);
+    }
+    if (filter.type === "sort" && filter.direction && !["asc", "desc", "random"].includes(filter.direction)) {
+      errors.push(`${label}[${index}].direction must be asc, desc or random`);
+    }
+    if (filter.type === "regex-sort" && array(filter.expressions).length === 0 && array(filter.patterns).length === 0 && !stringValue(filter.pattern)) {
+      errors.push(`${label}[${index}] needs expressions, patterns or pattern for regex-sort`);
+    }
+    if (filter.type === "regex-sort" && filter.direction && !["asc", "desc", "original"].includes(filter.direction)) {
+      errors.push(`${label}[${index}].direction must be asc, desc or original`);
+    }
+    if (filter.type === "flag" && filter.mode && !["add", "remove"].includes(filter.mode)) {
+      errors.push(`${label}[${index}].mode must be add or remove`);
     }
   }
 }

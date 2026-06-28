@@ -627,6 +627,7 @@ import { initStores } from "@/utils/initApp";
 import draggable from "vuedraggable";
 import CompareTable from "@/views/CompareTable.vue";
 import ActionBlock from "@/views/editor/ActionBlock.vue";
+import ActionRadio from "@/views/editor/components/ActionRadio.vue";
 import FilterSelect from "@/views/editor/components/FilterSelect.vue";
 import HandleDuplicate from "@/views/editor/components/HandleDuplicate.vue";
 import Regex from "@/views/editor/components/Regex.vue";
@@ -964,7 +965,7 @@ const form = reactive<any>({
 });
 provide("form", form);
 
-const ignoreList: string[] = [];
+const ignoreList: string[] = ["Quick Setting Operator"];
 watch(
   () => cmStore.EditCode['SubEditer'],
   (newCode) => {
@@ -1069,6 +1070,9 @@ watchEffect(() => {
           enabled: !disabled,
         };
         switch (type) {
+          case "Flag Operator":
+            action.component = shallowRef(ActionRadio);
+            break;
           case "Sort Operator":
             action.component = shallowRef(Sort);
             break;
@@ -1077,6 +1081,7 @@ watchEffect(() => {
             action.component = shallowRef(FilterSelect);
             break;
           case "Regex Filter":
+          case "Regex Sort Operator":
           case "Regex Delete Operator":
           case "Regex Rename Operator":
             action.component = shallowRef(Regex);

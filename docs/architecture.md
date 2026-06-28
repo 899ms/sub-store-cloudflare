@@ -10,6 +10,7 @@ Cloudflare Worker
   |-- Static Assets                  Vue 管理界面
   |-- /api/env                       环境信息
   |-- /api/settings                  前端设置
+  |-- /api/storage                   备份与恢复
   |-- /api/sources                   订阅源
   |-- /api/collections               组合订阅
   |-- /api/templates                 分流模板
@@ -17,7 +18,7 @@ Cloudflare Worker
   |-- /download/source/:id/:target   单订阅源输出
   |-- /download/collection/:id/:target 组合订阅输出
   |
-  |-- D1                             sources / collections / templates
+  |-- D1                             sources / collections / templates / app_settings
   |-- Worker Secrets                 管理端 token / 下载 token
 ```
 
@@ -30,6 +31,7 @@ Cloudflare Worker
 | `sources` | 保存远程订阅 URL 或本地节点文本。 |
 | `collections` | 保存订阅源组合、过滤器和默认模板。 |
 | `templates` | 保存规则模板，包括代理组、规则提供者和规则列表。 |
+| `app_settings` | 保存界面设置和远程订阅请求参数。 |
 
 ## 输出流程
 
@@ -41,8 +43,9 @@ Cloudflare Worker
   |-- 拉取 collection 里的 sources
   |-- 解析节点
   |-- 应用 source filters
-  |-- 合并、去重
+  |-- 合并
   |-- 应用 collection filters
+  |-- 确保节点名唯一
   |-- 套用 template
   |-- 输出 mihomo / sing-box / v2ray / uri / json
 ```
@@ -56,8 +59,12 @@ Cloudflare Worker
 - `include`：按字段和正则保留节点。
 - `exclude`：按字段和正则排除节点。
 - `rename`：按正则重命名字段，默认字段是 `name`。
-- `dedupe`：按一个或多个字段去重。
-- `sort`：按节点名排序。
+- `delete-field`：按正则删除字段里的匹配文本，默认字段是 `name`。
+- `dedupe`：按一个或多个字段去重，可以删除重复项，也可以给重复节点重命名。
+- `sort`：按节点名排序，也支持随机排序。
+- `regex-sort`：按一组正则表达式把节点排到前面。
+- `flag`：按节点名识别区域旗帜，或移除已有旗帜。
+- `quick`：过滤无效节点，并批量设置 `udp`、`tfo`、`skip-cert-verify`、`vmess aead` 等常用属性。
 
 示例：
 
@@ -65,7 +72,10 @@ Cloudflare Worker
 [
   { "type": "include", "field": "name", "pattern": "香港|HK|日本|JP" },
   { "type": "exclude", "field": "name", "pattern": "官网|剩余|倍率" },
-  { "type": "dedupe", "fields": ["server", "port"] },
+  { "type": "delete-field", "field": "name", "patterns": ["倍率\\s*\\d+"] },
+  { "type": "dedupe", "fields": ["server", "port"], "action": "rename", "link": "-" },
+  { "type": "regex-sort", "expressions": ["香港|HK", "日本|JP", "新加坡|SG"], "direction": "asc" },
+  { "type": "flag", "mode": "add" },
   { "type": "sort", "direction": "asc" }
 ]
 ```

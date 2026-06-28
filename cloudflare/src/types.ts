@@ -11,12 +11,28 @@ export type SubStoreEnv = {
 };
 
 export type FilterRule = {
-  type: "include" | "exclude" | "rename" | "dedupe" | "sort" | string;
+  type:
+    | "include"
+    | "exclude"
+    | "rename"
+    | "dedupe"
+    | "sort"
+    | "delete-field"
+    | "regex-sort"
+    | "flag"
+    | "quick"
+    | string;
   field?: string;
   fields?: string[];
   pattern?: string;
+  patterns?: string[];
+  expressions?: string[];
   replacement?: string;
-  direction?: "asc" | "desc";
+  direction?: "asc" | "desc" | "random" | "original";
+  action?: "delete" | "rename";
+  link?: string;
+  position?: "front" | "back";
+  template?: string;
   [key: string]: unknown;
 };
 
@@ -109,8 +125,11 @@ export type TemplateRecord = {
   updatedAt: number;
 };
 
+export type AppSettings = Record<string, unknown>;
+
 export type AppConfig = {
   sources: SourceRecord[];
   collections: CollectionRecord[];
   templates: TemplateRecord[];
+  settings?: AppSettings;
 };
