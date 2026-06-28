@@ -96,18 +96,17 @@ const logRequestQueueState = (
     .map(([key, value]) => `${key}=${value}`)
     .join(' ');
 
-  console.log(
-    [
-      '[frontend-request-concurrency]',
-      new Date().toISOString(),
-      phase,
-      `#${id}`,
-      label,
-      `active=${activeRequestCount}/${getFrontendRequestConcurrency()}`,
-      `pending=${pendingRequestResolvers.length}`,
-      extraText,
-    ].filter(Boolean).join(' '),
-  );
+  const debugLine = [
+    '[frontend-request-concurrency]',
+    new Date().toISOString(),
+    phase,
+    `#${id}`,
+    label,
+    `active=${activeRequestCount}/${getFrontendRequestConcurrency()}`,
+    `pending=${pendingRequestResolvers.length}`,
+    extraText,
+  ].filter(Boolean).join(' ');
+  void debugLine;
 };
 
 const resolveNextPendingRequest = () => {

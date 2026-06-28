@@ -9,6 +9,14 @@ const trackedFiles = execFileSync("git", ["ls-files", "--cached", "--others", "-
   .filter((file) => existsSync(file));
 
 const findings = [];
+const frontendDebugPatterns = [
+  [/\bconsole\.log\s*\(/g, "frontend console.log debug output"],
+  [/\bdebugger\b/g, "frontend debugger statement"],
+];
+const removedFrontendFeaturePatterns = [
+  [/\bincludeUnsupportedProxy\b/g, "removed preview option"],
+  [/\bprettyYaml\b/g, "removed preview option"],
+];
 const localeForbiddenKeys = [
   "filePage",
   "logsPage",
@@ -72,6 +80,29 @@ for (const file of trackedFiles) {
       }
     }
   }
+
+  if (file.startsWith("frontend/src/")) {
+    let inBlockComment = false;
+    for (const [index, line] of lines.entries()) {
+      const codeLine = stripSimpleComments(line, inBlockComment);
+      inBlockComment = codeLine.inBlockComment;
+      for (const [pattern, label] of frontendDebugPatterns) {
+        pattern.lastIndex = 0;
+        if (pattern.test(codeLine.text)) {
+          findings.push(`${file}:${index + 1}: ${label}: ${line.trim()}`);
+        }
+      }
+    }
+  }
+
+  for (const [index, line] of lines.entries()) {
+    for (const [pattern, label] of removedFrontendFeaturePatterns) {
+      pattern.lastIndex = 0;
+      if (pattern.test(line)) {
+        findings.push(`${file}:${index + 1}: ${label}: ${line.trim()}`);
+      }
+    }
+  }
 }
 
 if (findings.length > 0) {
@@ -80,3 +111,32 @@ if (findings.length > 0) {
 }
 
 console.log("Open-source scan passed.");
+
+function stripSimpleComments(line, inBlockComment) {
+  let text = line;
+  let blockCommentOpen = inBlockComment;
+
+  if (blockCommentOpen) {
+    const closeIndex = text.indexOf("*/");
+    if (closeIndex === -1) return { text: "", inBlockComment: true };
+    text = text.slice(closeIndex + 2);
+    blockCommentOpen = false;
+  }
+
+  while (true) {
+    const openIndex = text.indexOf("/*");
+    if (openIndex === -1) break;
+    const closeIndex = text.indexOf("*/", openIndex + 2);
+    if (closeIndex === -1) {
+      text = text.slice(0, openIndex);
+      blockCommentOpen = true;
+      break;
+    }
+    text = `${text.slice(0, openIndex)}${text.slice(closeIndex + 2)}`;
+  }
+
+  const lineCommentIndex = text.indexOf("//");
+  if (lineCommentIndex !== -1) text = text.slice(0, lineCommentIndex);
+
+  return { text, inBlockComment: blockCommentOpen };
+}

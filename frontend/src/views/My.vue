@@ -1,38 +1,29 @@
 <template>
   <div class="my-page-wrapper">
     <section class="profile-block">
-      <div class="profile-main">
-        <nut-avatar
-          size="64"
-          bg-color="var(--card-color)"
-          :url="icon"
-          class="auto-reverse"
-        />
-        <div class="profile-text">
-          <p class="title">{{ appName }}</p>
-          <p class="des">{{ t("myPage.profile.desc") }}</p>
+      <div class="radio-wrapper">
+        <span class="tag current">{{ env.runtime || env.backend || "Cloudflare" }}</span>
+        <div class="storage-language-switch">
+          <LanguageSwitcherButton />
         </div>
       </div>
-      <div class="status-grid">
-        <div class="status-item">
-          <span>{{ t("myPage.profile.runtime") }}</span>
-          <strong>{{ env.runtime || env.backend || "Cloudflare Workers" }}</strong>
+      <div class="info">
+        <div class="avatar-wrapper">
+          <nut-avatar
+            size="72"
+            bg-color="var(--card-color)"
+            :url="icon"
+            class="auto-reverse"
+          />
+          <div class="name">
+            <p class="title">{{ appName }}</p>
+            <p class="des">
+              <span class="des-line1">{{ t("myPage.profile.desc") }}</span>
+              <span class="des-line2">{{ env.storage || "D1" }} · v{{ env.version || "-" }}</span>
+            </p>
+          </div>
         </div>
-        <div class="status-item">
-          <span>{{ t("myPage.profile.storage") }}</span>
-          <strong>{{ env.storage || "D1" }}</strong>
-        </div>
-        <div class="status-item">
-          <span>{{ t("myPage.profile.version") }}</span>
-          <strong>v{{ env.version || "-" }}</strong>
-        </div>
-      </div>
-    </section>
-
-    <section class="config-card storage-card">
-      <div class="title-wrapper">
-        <h1>{{ t("myPage.backup.title") }}</h1>
-        <div class="storage-actions">
+        <div class="actions">
           <input ref="fileInput" type="file" accept="application/json,.json" @change="restoreFromFile" />
           <nut-button plain type="primary" size="small" :loading="restoreIsLoading" @click="selectBackupFile">
             <font-awesome-icon v-if="!restoreIsLoading" icon="fa-solid fa-cloud-arrow-up" />
@@ -45,6 +36,12 @@
             </nut-button>
           </a>
         </div>
+      </div>
+    </section>
+
+    <section class="config-card storage-card">
+      <div class="title-wrapper">
+        <h1>{{ t("myPage.backup.title") }}</h1>
       </div>
       <p class="card-desc">{{ t("myPage.backup.desc") }}</p>
     </section>
@@ -115,156 +112,76 @@
     <section class="config-card">
       <div class="title-wrapper">
         <h1>{{ t("myPage.appearance.title") }}</h1>
-        <LanguageSwitcherButton />
       </div>
-      <div class="settings-group">
-        <p class="settings-group-title">{{ t("myPage.appearance.groups.list") }}</p>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.simpleMode") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.simpleModeDesc") }}</p>
-          </div>
-          <nut-switch v-model="simpleMode" @change="(value) => saveAppearancePatch({ isSimpleMode: value })" />
-        </div>
-        <div class="settings-row settings-row--clickable" @click="showListViewModePicker = true">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.listView.title") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.listView.desc") }}</p>
-          </div>
-          <div class="settings-value">
-            <span>{{ listViewModeLabel }}</span>
-            <nut-icon name="right" />
-          </div>
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.showIcon") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.showIconDesc") }}</p>
-          </div>
-          <nut-switch v-model="showIcon" @change="(value) => saveAppearancePatch({ isShowIcon: value })" />
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.defaultIcon") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.defaultIconDesc") }}</p>
-          </div>
-          <nut-switch v-model="defaultIcon" @change="(value) => saveAppearancePatch({ isDefaultIcon: value })" />
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.simpleRefreshIcon") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.simpleRefreshIconDesc") }}</p>
-          </div>
-          <nut-switch v-model="simpleRefreshIcon" @change="(value) => saveAppearancePatch({ isSimpleReicon: value })" />
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.simpleShowRemark") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.simpleShowRemarkDesc") }}</p>
-          </div>
-          <nut-switch v-model="simpleShowRemark" @change="(value) => saveAppearancePatch({ isSimpleShowRemark: value })" />
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.foldItemMenu") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.foldItemMenuDesc") }}</p>
-          </div>
-          <nut-switch v-model="foldItemMenu" @change="(value) => saveAppearancePatch({ isSubItemMenuFold: value })" />
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.leftSwipeActions") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.leftSwipeActionsDesc") }}</p>
-          </div>
-          <nut-switch v-model="leftSwipeActions" @change="(value) => saveAppearancePatch({ isLeftRight: value })" />
-        </div>
-        <div class="settings-row settings-row--clickable" @click="showSubProgressPicker = true">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.subProgress.title") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.subProgress.desc") }}</p>
-          </div>
-          <div class="settings-value">
-            <span>{{ subProgressStyleLabel }}</span>
-            <nut-icon name="right" />
-          </div>
-        </div>
-      </div>
+      <nut-cell-group :title="t('myPage.appearance.groups.list')">
+        <nut-cell :title="t('myPage.appearance.simpleMode')" class="cell-item" :desc="t('myPage.appearance.simpleModeDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="simpleMode" size="mini" @change="(value) => saveAppearancePatch({ isSimpleMode: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell class="cell-item" :title="t('myPage.appearance.listView.title')" :desc="listViewModeLabel" @click="showListViewModePicker = true" is-link />
+        <nut-cell :title="t('myPage.appearance.showIcon')" class="cell-item" :desc="t('myPage.appearance.showIconDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="showIcon" size="mini" @change="(value) => saveAppearancePatch({ isShowIcon: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell :title="t('myPage.appearance.defaultIcon')" class="cell-item" :desc="t('myPage.appearance.defaultIconDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="defaultIcon" size="mini" @change="(value) => saveAppearancePatch({ isDefaultIcon: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell :title="t('myPage.appearance.simpleRefreshIcon')" class="cell-item" :desc="t('myPage.appearance.simpleRefreshIconDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="simpleRefreshIcon" size="mini" @change="(value) => saveAppearancePatch({ isSimpleReicon: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell :title="t('myPage.appearance.simpleShowRemark')" class="cell-item" :desc="t('myPage.appearance.simpleShowRemarkDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="simpleShowRemark" size="mini" @change="(value) => saveAppearancePatch({ isSimpleShowRemark: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell :title="t('myPage.appearance.foldItemMenu')" class="cell-item" :desc="t('myPage.appearance.foldItemMenuDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="foldItemMenu" size="mini" @change="(value) => saveAppearancePatch({ isSubItemMenuFold: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell :title="t('myPage.appearance.leftSwipeActions')" class="cell-item" :desc="t('myPage.appearance.leftSwipeActionsDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="leftSwipeActions" size="mini" @change="(value) => saveAppearancePatch({ isLeftRight: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell class="cell-item" :title="t('myPage.appearance.subProgress.title')" :desc="subProgressStyleLabel" @click="showSubProgressPicker = true" is-link />
+      </nut-cell-group>
 
-      <div class="settings-group">
-        <p class="settings-group-title">{{ t("myPage.appearance.groups.links") }}</p>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.displayPreviewInWebPage") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.displayPreviewInWebPageDesc") }}</p>
-          </div>
-          <nut-switch v-model="displayPreviewInWebPage" @change="(value) => saveAppearancePatch({ displayPreviewInWebPage: value })" />
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.floatingAddButton") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.floatingAddButtonDesc") }}</p>
-          </div>
-          <nut-switch v-model="floatingAddButton" @change="(value) => saveAppearancePatch({ showFloatingAddButton: value })" />
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.floatingRefreshButton") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.floatingRefreshButtonDesc") }}</p>
-          </div>
-          <nut-switch v-model="floatingRefreshButton" @change="(value) => saveAppearancePatch({ showFloatingRefreshButton: value })" />
-        </div>
-        <div class="settings-row settings-row--clickable" @click="showCreateItemPositionPicker = true">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.createItemPosition.title") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.createItemPosition.desc") }}</p>
-          </div>
-          <div class="settings-value">
-            <span>{{ createItemPositionLabel }}</span>
-            <nut-icon name="right" />
-          </div>
-        </div>
-        <div class="settings-row">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.wideScreenNarrowMode") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.wideScreenNarrowModeDesc") }}</p>
-          </div>
-          <nut-switch v-model="wideScreenNarrowMode" @change="setWideScreenNarrowMode" />
-        </div>
-      </div>
+      <nut-cell-group :title="t('myPage.appearance.groups.links')">
+        <nut-cell :title="t('myPage.appearance.displayPreviewInWebPage')" class="cell-item" :desc="t('myPage.appearance.displayPreviewInWebPageDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="displayPreviewInWebPage" size="mini" @change="(value) => saveAppearancePatch({ displayPreviewInWebPage: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell :title="t('myPage.appearance.floatingAddButton')" class="cell-item" :desc="t('myPage.appearance.floatingAddButtonDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="floatingAddButton" size="mini" @change="(value) => saveAppearancePatch({ showFloatingAddButton: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell :title="t('myPage.appearance.floatingRefreshButton')" class="cell-item" :desc="t('myPage.appearance.floatingRefreshButtonDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="floatingRefreshButton" size="mini" @change="(value) => saveAppearancePatch({ showFloatingRefreshButton: value })" />
+          </template>
+        </nut-cell>
+        <nut-cell class="cell-item" :title="t('myPage.appearance.createItemPosition.title')" :desc="createItemPositionLabel" @click="showCreateItemPositionPicker = true" is-link />
+        <nut-cell :title="t('myPage.appearance.wideScreenNarrowMode')" class="cell-item" :desc="t('myPage.appearance.wideScreenNarrowModeDesc')">
+          <template #link>
+            <nut-switch class="my-switch" v-model="wideScreenNarrowMode" size="mini" @change="setWideScreenNarrowMode" />
+          </template>
+        </nut-cell>
+      </nut-cell-group>
 
-      <div class="settings-group">
-        <p class="settings-group-title">{{ t("myPage.appearance.groups.editor") }}</p>
-        <div class="settings-row settings-row--clickable" @click="showEditorCommonDisplayModePicker = true">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.editorCommon.title") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.editorCommon.desc") }}</p>
-          </div>
-          <div class="settings-value">
-            <span>{{ editorCommonDisplayModeLabel }}</span>
-            <nut-icon name="right" />
-          </div>
-        </div>
-        <div class="settings-row settings-row--clickable" @click="showManualSubscriptionsDisplayModePicker = true">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.manualSubscriptions.title") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.manualSubscriptions.desc") }}</p>
-          </div>
-          <div class="settings-value">
-            <span>{{ manualSubscriptionsDisplayModeLabel }}</span>
-            <nut-icon name="right" />
-          </div>
-        </div>
-        <div class="settings-row settings-row--clickable" @click="showEditorGroupingModePicker = true">
-          <div>
-            <p class="row-title">{{ t("myPage.appearance.editorGrouping.title") }}</p>
-            <p class="row-desc">{{ t("myPage.appearance.editorGrouping.desc") }}</p>
-          </div>
-          <div class="settings-value">
-            <span>{{ editorGroupingModeLabel }}</span>
-            <nut-icon name="right" />
-          </div>
-        </div>
-      </div>
+      <nut-cell-group :title="t('myPage.appearance.groups.editor')">
+        <nut-cell class="cell-item" :title="t('myPage.appearance.editorCommon.title')" :desc="editorCommonDisplayModeLabel" @click="showEditorCommonDisplayModePicker = true" is-link />
+        <nut-cell class="cell-item" :title="t('myPage.appearance.manualSubscriptions.title')" :desc="manualSubscriptionsDisplayModeLabel" @click="showManualSubscriptionsDisplayModePicker = true" is-link />
+        <nut-cell class="cell-item" :title="t('myPage.appearance.editorGrouping.title')" :desc="editorGroupingModeLabel" @click="showEditorGroupingModePicker = true" is-link />
+      </nut-cell-group>
     </section>
 
     <nut-popup v-model:visible="templateImportVisible" position="bottom" round closeable :style="{ height: '82vh' }">
@@ -373,6 +290,7 @@ import { useBackend } from "@/hooks/useBackend";
 import { useAppNotifyStore } from "@/store/appNotify";
 import { useCodeStore } from "@/store/codeStore";
 import { useSettingsStore } from "@/store/settings";
+import { getStoredAdminToken } from "@/utils/adminToken";
 import cmView from "@/views/editCode/cmView.vue";
 import { TEMPLATE_TARGET_OPTIONS, getTargetLabel } from "@/constants/subscriptionTargets";
 
@@ -501,7 +419,7 @@ const requestSummary = computed(() => {
 
 const backupUrl = computed(() => {
   const url = new URL("/api/storage", window.location.origin);
-  const token = localStorage.getItem("substore_admin_token");
+  const token = getStoredAdminToken();
   if (token) url.searchParams.set("token", token);
   return url.toString();
 });
@@ -766,118 +684,172 @@ onMounted(fetchTemplates);
 
 <style lang="scss" scoped>
 .my-page-wrapper {
-  width: calc(100% - 1.5rem);
-  margin: 0 auto;
+  min-height: 100%;
+  padding: var(--safe-area-side);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: center;
+  gap: 10px;
 }
 
-.profile-block,
+.profile-block {
+  width: 100%;
+
+  .radio-wrapper {
+    display: flex;
+    align-items: center;
+
+    .tag {
+      margin: 0 5px;
+      padding: 7.5px 2.5px 4px;
+      flex-shrink: 0;
+      color: var(--second-text-color);
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .current {
+      border-bottom: 1px solid var(--primary-color);
+      color: var(--primary-color);
+    }
+
+    .storage-language-switch {
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+  }
+
+  .info {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 12px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .avatar-wrapper {
+    min-width: 0;
+    max-width: 64%;
+    display: flex;
+    align-items: center;
+
+    :deep(.nut-avatar) {
+      background: var(--card-color);
+    }
+  }
+
+  .name {
+    min-width: 0;
+    margin-left: 12px;
+    display: flex;
+    flex-direction: column;
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .title {
+    margin: 0;
+    overflow: hidden;
+    color: var(--primary-text-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .des {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    color: var(--comment-text-color);
+    font-size: 12px;
+    font-weight: normal;
+    line-height: 1.45;
+  }
+
+  .actions {
+    margin-left: 12px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+
+    input {
+      display: none;
+    }
+
+    svg {
+      margin-right: 4px;
+    }
+
+    .nut-button {
+      width: 116px;
+      padding: 0 10px;
+    }
+
+    .nut-button--plain {
+      background: transparent;
+    }
+
+    a {
+      margin-top: 12px;
+    }
+  }
+}
+
 .config-card {
+  width: 100%;
   border-radius: var(--item-card-radios);
   background: var(--card-color);
   color: var(--second-text-color);
   overflow: hidden;
 }
 
-.profile-block {
-  padding: 18px;
-}
+.cell-item {
+  box-shadow: none;
+  background: var(--card-color);
+  font-weight: bold;
 
-.profile-main {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.profile-text {
-  min-width: 0;
-
-  .title {
-    margin: 0;
-    font-size: 18px;
-    line-height: 1.35;
-    color: var(--primary-text-color);
+  :deep(.nut-cell__title) {
+    min-width: 0;
   }
 
-  .des {
-    margin: 4px 0 0;
-    font-size: 13px;
-    color: var(--comment-text-color);
-  }
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.status-item {
-  min-width: 0;
-  padding: 10px;
-  border-radius: var(--item-card-radios);
-  background: var(--background-color);
-
-  span,
-  strong {
-    display: block;
+  :deep(.nut-cell__title .title) {
     overflow: hidden;
+    color: var(--primary-text-color);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  span {
-    font-size: 12px;
-    color: var(--comment-text-color);
+  :deep(.nut-cell__value),
+  :deep(.nut-cell__desc) {
+    font-weight: normal;
+    color: var(--lowest-text-color);
   }
 
-  strong {
-    margin-top: 4px;
-    font-size: 13px;
-    color: var(--primary-text-color);
-  }
-}
-
-.title-wrapper {
-  min-height: 48px;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid var(--divider-color);
-  cursor: pointer;
-
-  h1 {
-    margin: 0;
-    font-size: 15px;
-    color: var(--primary-text-color);
+  :deep(.nut-cell__link) {
+    flex-shrink: 0;
   }
 }
 
-.storage-card .title-wrapper {
-  cursor: default;
+:deep(.nut-cell-group__warp) {
+  border-radius: 0;
+  background: transparent;
 }
 
-.storage-actions,
-.config-btn-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  input {
-    display: none;
-  }
+:deep(.nut-cell-group__title) {
+  padding: 12px 16px 6px;
+  color: var(--comment-text-color);
 }
 
-.card-desc {
-  margin: 0;
-  padding: 12px 16px 16px;
-  font-size: 12px;
-  line-height: 1.6;
+.my-switch {
+  flex-shrink: 0;
+}
+
+.nut-icon {
+  color: var(--lowest-text-color);
+}
+
+.right-icon {
   color: var(--comment-text-color);
 }
 
@@ -969,6 +941,46 @@ onMounted(fetchTemplates);
   }
 }
 
+.title-wrapper {
+  min-height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--divider-color);
+  cursor: pointer;
+
+  h1 {
+    margin: 0;
+    font-size: 15px;
+    color: var(--primary-text-color);
+  }
+}
+
+.storage-card .title-wrapper {
+  cursor: default;
+}
+
+.storage-actions,
+.config-btn-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input {
+    display: none;
+  }
+}
+
+.card-desc {
+  margin: 0;
+  padding: 12px 16px 16px;
+  color: var(--comment-text-color);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .config-input-wrapper {
   padding: 8px 16px 16px;
   display: flex;
@@ -980,75 +992,42 @@ onMounted(fetchTemplates);
   }
 }
 
-.settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--divider-color);
-
-  &:last-child {
-    border-bottom: 0;
-  }
-}
-
-.settings-group {
-  border-bottom: 1px solid var(--divider-color);
-
-  &:last-child {
-    border-bottom: 0;
-  }
-}
-
-.settings-group-title {
-  margin: 0;
-  padding: 12px 16px 6px;
-  font-size: 12px;
-  color: var(--comment-text-color);
-}
-
-.settings-row--clickable {
-  cursor: pointer;
-}
-
-.settings-value {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 46%;
-  color: var(--comment-text-color);
-  font-size: 12px;
-
-  span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.row-title {
-  margin: 0;
-  font-size: 14px;
-  color: var(--primary-text-color);
-}
-
-.row-desc {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--comment-text-color);
-}
-
 @media screen and (max-width: 430px) {
-  .status-grid {
-    grid-template-columns: 1fr;
+  .profile-block {
+    .info {
+      align-items: flex-start;
+    }
+
+    .avatar-wrapper {
+      max-width: calc(100% - 132px);
+    }
+
+    .actions {
+      .nut-button {
+        width: 104px;
+        padding: 0 8px;
+      }
+    }
   }
 
   .title-wrapper {
     align-items: flex-start;
     flex-direction: column;
     padding: 14px 16px;
+  }
+
+  .storage-actions {
+    flex-wrap: wrap;
+  }
+
+  .template-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .template-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 </style>

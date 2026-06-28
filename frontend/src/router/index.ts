@@ -77,35 +77,6 @@ declare module 'vue-router' {
 
 const history = createWebHistory();
 const router = createRouter({
-  // scrollBehavior(to, from, savedPosition) {
-  //   // console.log(`scrollBehavior ${from.path} => ${to.path}`)
-  //   document.querySelector('html').style['overflow-y'] = '';
-  //   document.querySelector('html').style.height = '';
-  //   document.body.style.height = '';
-  //   document.body.style['overflow-y'] = '';
-  //   (document.querySelector('#app') as HTMLElement).style['overflow-y'] = '';
-  //   (document.querySelector('#app') as HTMLElement).style.height = '';
-
-  //   if (to.hash) {
-  //     return {
-  //       el: to.hash,
-  //       behavior: 'smooth',
-  //     }
-  //   }
-  //   if (globalStore !== null) {
-  //     const savedPositions = toRaw(globalStore.savedPositions);
-  //     if (savedPositions[to.path]) {
-  //       // console.log(`读取到 ${to.path} 保存的滚动位置：${savedPositions[to.path]?.top}`)
-  //       return savedPositions[to.path]
-  //     }
-  //   }
-  //   if (savedPosition) {
-  //     // console.log(`接受到 ${to.path} savedPosition 滚动位置：${savedPosition?.top}`)
-  //     return savedPosition
-  //   } else {
-  //     return { top: 0, left: 0 }
-  //   }
-  // },
   history,
   routes: [
     {
@@ -177,7 +148,6 @@ const router = createRouter({
 // 全局前置守卫
 router.afterEach(async (to, from) => {
   resetDocumentScrollStyles();
-  // console.log(`afterEach ${from.path} => ${to.path}`)
   if (to?.path && from?.path !== to?.path) {
     const shouldResetTabScroll = isTabSwitch(to, from);
     let scrollTop = 0;
@@ -185,10 +155,8 @@ router.afterEach(async (to, from) => {
       const savedPositions = toRaw(globalStore.savedPositions);
       if (savedPositions[to.path]?.top) {
         scrollTop = savedPositions[to.path]?.top
-        // console.log(`读取到 ${to.path} 保存的滚动位置：${scrollTop}`)
       }
     }
-    // console.log(`${to.path} 滚动到：${scrollTop}`)
     await nextTick()
     scrollToPosition(scrollTop);
 
@@ -199,7 +167,6 @@ router.afterEach(async (to, from) => {
 });
 router.beforeEach((to, from) => {
   document.title = 'Sub Store';
-  // console.log(`beforeEach ${from.path} => ${to.path}`)
   if (to?.path !== '/subs') {
     useSubsStore().cancelFetchFlows();
   }
@@ -208,9 +175,7 @@ router.beforeEach((to, from) => {
   }
   if (globalStore) {
     if (from?.meta?.needTabBar && from?.path !== to?.path) {
-      // if (from?.meta?.needTabBar) {
         const scrollTop = isTabSwitch(to, from) ? 0 : getCurrentScrollTop();
-        // console.log(`保存 ${from.path} 滚动位置：${scrollTop}`)
         globalStore.setSavedPositions(from.path, { left: 0, top: scrollTop })
       }
   }
@@ -264,23 +229,6 @@ router.beforeResolve(async (to, from) => {
       }
     }
   }
-
-  // console.log(`beforeResolve ${from.path} => ${to.path}`)
-  // if (to?.path && from?.path !== to?.path) {
-  //   let scrollTop = 0;
-  //   if (to?.meta?.needTabBar && globalStore !== null) {
-  //     const savedPositions = toRaw(globalStore.savedPositions);
-  //     if (savedPositions[to.path]?.top) {
-  //       scrollTop = savedPositions[to.path]?.top
-  //       console.log(`读取到 ${to.path} 保存的滚动位置：${scrollTop}`)
-  //     }
-  //   }
-  //   console.log(`${to.path} 滚动到：${scrollTop}`)
-  //   window.scrollTo({
-  //     top: 1000,
-  //     behavior: "instant" as any
-  //   });
-  // }
   // 允许跳转
   return true;
 });

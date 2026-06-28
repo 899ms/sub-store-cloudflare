@@ -17,10 +17,13 @@ import '@/assets/styles/reduced-motion-fix.scss';
 import { createPinia } from 'pinia';
 import 'virtual:svg-icons-register';
 import { createApp } from 'vue';
+import { syncAdminTokenFromUrl } from '@/utils/adminToken';
 
 import App from './App.vue';
 
 export function initializeApp() {
+  syncAdminTokenFromUrl();
+
   // 创建一个回调函数来处理变化
   const callback = function(mutationsList, observer) {
     for(let mutation of mutationsList) {

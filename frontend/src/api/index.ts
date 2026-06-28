@@ -2,6 +2,7 @@ import { useAppNotifyStore } from '@/store/appNotify';
 import axios, { AxiosError, AxiosPromise, AxiosResponse } from 'axios';
 import i18n from '@/locales';
 import { getHostAPIUrl } from '@/hooks/useHostAPI';
+import { getStoredAdminToken } from '@/utils/adminToken';
 import { getApiRequestTimeout } from '@/utils/requestTimeout';
 
 let appNotifyStore = null;
@@ -81,16 +82,6 @@ const isCanceledRequestError = (error: AxiosError<ErrorResponse>) => {
     || axios.isCancel(error);
 };
 
-const ADMIN_TOKEN_STORAGE_KEY = 'substore_admin_token';
-
-const syncAdminTokenFromUrl = () => {
-  if (typeof window === 'undefined') return;
-  const token = new URLSearchParams(window.location.search).get('token');
-  if (token) localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
-};
-
-syncAdminTokenFromUrl();
-
 // 配置新建一个 axios 实例
 const service = axios.create({
   baseURL: getHostAPIUrl(),
@@ -99,7 +90,7 @@ const service = axios.create({
 });
 
 service.interceptors.request.use(config => {
-  const token = typeof window === 'undefined' ? '' : localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
+  const token = getStoredAdminToken();
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -110,11 +101,9 @@ service.interceptors.request.use(config => {
 
 service.interceptors.response.use(
   (response: AxiosResponse<SucceedResponse>): AxiosPromise<SucceedResponse> => {
-    // console.log('ddddddddd', response.data);
     return Promise.resolve(response);
   },
   (e: AxiosError<ErrorResponse>): AxiosPromise<ErrorResponse | undefined> => {
-    // console.log(e.config.url);
     const requestUrl = e.config?.url || '';
 
     if (isCanceledRequestError(e))

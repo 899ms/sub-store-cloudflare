@@ -367,7 +367,6 @@ const paste = async () => {
   } catch (e) {
     
   }
-  // console.log(`item`, item)
   if (item?.data?.id && item?.data?.type && isSupportedActionType(item.data.type)) {
     if (item?.source !== sourceType) {
       throw new Error(t("editorPage.subConfig.actions.pasteAction.sourceMismatch"))
@@ -376,7 +375,6 @@ const paste = async () => {
       ...item.data,
       value: item.data.type,
     }]
-    // console.log(data)
     emit('addAction', data);
   } else {
     throw new Error(t("editorPage.subConfig.actions.pasteAction.invalidData"))

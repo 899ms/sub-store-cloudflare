@@ -1756,9 +1756,6 @@ const urlValidator = (val: string): Promise<boolean> => {
   };
   const subCheckboxIndeterminate = ref(true);
   const subCheckbox = ref(true);
-  // const subCheckboxChange = (v) => {
-  //   console.log(`${!v} -> ${v}`)
-  // };
   const subCheckboxClick = () => {
     const group = getCurrentVisibleRows().map(([name]) => name);
     if (subCheckboxIndeterminate.value) {
@@ -1814,15 +1811,12 @@ const urlValidator = (val: string): Promise<boolean> => {
     // 2. group 中包含 selected 中的任意元素, subCheckbox 为 true, subCheckboxIndeterminate 为 true
     // 3. group 中包含 selected 中的所有元素, subCheckbox 为 true, subCheckboxIndeterminate 为 false
     if (group.every(item => selected.includes(item))) {
-      // console.log('group 中包含 selected 中的所有元素')
       subCheckbox.value = true
       subCheckboxIndeterminate.value = false
     } else if (group.some(item => selected.includes(item))) {
-      // console.log('group 中包含 selected 中的任意元素')
       subCheckbox.value = true
       subCheckboxIndeterminate.value = true
     } else {
-      // console.log('group 中不包含 selected 中的任意元素')
       subCheckbox.value = false
       subCheckboxIndeterminate.value = false
     }

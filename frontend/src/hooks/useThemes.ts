@@ -105,7 +105,6 @@ export const useThemes = () => {
 
   // 监听 theme 设置变化，切换 theme
   watchEffect(async () => {
-    // console.log(theme.value);
     if (theme.value.auto) {
       if (theme.value.dark && theme.value.light) {
         autoTheme(mql);

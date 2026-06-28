@@ -343,8 +343,6 @@ const { toClipboard: copyFallback } = useV3Clipboard();
 
 const { t } = useI18n();
 
-// console.log('props.disabled')
-// console.log(props.disabled)
 let scrollTop = 0;
 
 const compareTableIsVisible = ref(false);

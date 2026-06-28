@@ -66,7 +66,6 @@ export const useSystemStore = defineStore('systemStore', {
       this.isIPadLike = isIPadLike();
       this.isSmall = isSmallSafeAreaDevice();
       this.isLandscape = this.screenWidth > this.screenHeight;
-      // console.log(`isPWA: ${this.isPWA}, Screen resized: ${this.screenWidth}x${this.screenHeight}, isSmall: ${this.isSmall}, isLandscape: ${this.isLandscape}`);
     },
     setStatusBarHeight(height: number) {
       this.statusBarHeight = height;
