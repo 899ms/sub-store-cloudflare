@@ -125,6 +125,8 @@
       url: previewUrl,
       name: displayName || name,
       api: host.value,
+      sourceType: type,
+      sourceName: name,
     });
   }
   const getRealUrl = async (path: PlatformPath) => {
@@ -136,14 +138,21 @@
     return realUrl;
   };
   const targetOpen = async (path: PlatformPath) => {
+    const pendingWindow = window.open('about:blank', '_blank');
     const realUrl = await getRealUrl(path);
     const nextUrl = appearanceSetting.value.displayPreviewInWebPage
-      ? buildUrlWithQuery('/preview', {
-          url: realUrl,
-          name: displayName || name,
-          api: host.value,
-        })
+        ? buildUrlWithQuery('/preview', {
+            url: realUrl,
+            name: displayName || name,
+            api: host.value,
+            sourceType: type,
+            sourceName: name,
+          })
       : realUrl;
+    if (pendingWindow) {
+      pendingWindow.location.href = nextUrl;
+      return;
+    }
     window.open(nextUrl, '_blank');
   };
   const targetCopy = async (path: PlatformPath) => {

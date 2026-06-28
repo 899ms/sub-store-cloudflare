@@ -118,10 +118,11 @@
                 isProcessedVisible && isOriginalVisible,
             }"
           >
-            <template v-for="[processed = {}, original = {}] in data" :key="processed.id">
+            <template v-for="[processed = {}, original] in data" :key="processed.id">
               <tr
                 v-if="isProcessedVisible"
                 class="compare-table-row processed-tr"
+                :class="{ 'processed-tr--unpaired': !hasNodeDisplayInfo(original) }"
                 @click="openNodeInfoPanel(processed)"
               >
                 <td class="processed-item">
@@ -130,7 +131,7 @@
                       <nut-tag class="type-tag">{{ processed.type }}</nut-tag
                       >{{ processed.name }}
                     </div>
-                    <div>{{ processed.server || processed.addresses?.join(',') }}:{{ processed.port || processed["local-port"] }}</div>
+                    <div v-if="formatNodeEndpoint(processed)">{{ formatNodeEndpoint(processed) }}</div>
                   </div>
                 </td>
                 <td>
@@ -168,7 +169,7 @@
                 </td>
               </tr>
               <tr
-                v-if="isOriginalVisible"
+                v-if="isOriginalVisible && hasNodeDisplayInfo(original)"
                 class="compare-table-row original-tr"
                 @click="openNodeInfoPanel(original)"
               >
@@ -177,7 +178,7 @@
                     <div>
                       {{ original.name }}
                     </div>
-                    <div>{{ original.server || original.addresses?.join(',') }}:{{ original.port || original["local-port"] }}</div>
+                    <div v-if="formatNodeEndpoint(original)">{{ formatNodeEndpoint(original) }}</div>
                   </div>
                 </td>
                 <td>
@@ -255,7 +256,7 @@
                       <nut-tag class="type-tag">{{ node.type }} </nut-tag
                       >{{ node.name }}
                     </div>
-                    <div>{{ node.server || node.addresses?.join(',') }}:{{ node.port || node["local-port"] }}</div>
+                    <div v-if="formatNodeEndpoint(node)">{{ formatNodeEndpoint(node) }}</div>
                   </div>
                 </td>
                 <td>
@@ -423,6 +424,37 @@
     return result;
   });
 
+  const normalizeEndpointPart = (value: unknown) => {
+    if (value == null) {
+      return '';
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .map(item => normalizeEndpointPart(item))
+        .filter(Boolean)
+        .join(',');
+    }
+
+    return String(value).trim();
+  };
+
+  const formatNodeEndpoint = (node: Record<string, any> | null | undefined) => {
+    const host = normalizeEndpointPart(node?.server)
+      || normalizeEndpointPart(node?.addresses);
+    const port = normalizeEndpointPart(node?.port ?? node?.['local-port']);
+
+    if (host && port) {
+      return `${host}:${port}`;
+    }
+
+    return host || port;
+  };
+
+  const hasNodeDisplayInfo = (node: Record<string, any> | null | undefined) => {
+    return Boolean(node?.name || node?.type || formatNodeEndpoint(node));
+  };
+
   // 被过滤掉的节点：original 中未被 processed 匹配到的
   const filteredOriginalData = computed(() => {
     const original = originalData.value;
@@ -533,6 +565,11 @@
       .processed-tr {
         padding-bottom: 0;
         border-bottom: none;
+      }
+
+      .processed-tr--unpaired {
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--divider-color);
       }
 
       .original-tr {
