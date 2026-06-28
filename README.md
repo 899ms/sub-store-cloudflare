@@ -1,10 +1,29 @@
 # Sub-Store Cloudflare
 
+[![CI](https://github.com/realchendahuang/sub-store-cloudflare/actions/workflows/ci.yml/badge.svg)](https://github.com/realchendahuang/sub-store-cloudflare/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/realchendahuang/sub-store-cloudflare?include_prereleases&sort=semver)](https://github.com/realchendahuang/sub-store-cloudflare/releases)
+[![License: AGPL-3.0](https://img.shields.io/github/license/realchendahuang/sub-store-cloudflare)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/realchendahuang/sub-store-cloudflare?style=flat)](https://github.com/realchendahuang/sub-store-cloudflare/stargazers)
+[![Forks](https://img.shields.io/github/forks/realchendahuang/sub-store-cloudflare?style=flat)](https://github.com/realchendahuang/sub-store-cloudflare/forks)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers/)
+[![D1](https://img.shields.io/badge/Storage-D1-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/d1/)
+[![pnpm](https://img.shields.io/badge/pnpm-11.7.0-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/sub-store-cloudflare)
 
 一个部署在 Cloudflare Workers 上的订阅聚合与规则配置工具。它把订阅源、节点处理、组合订阅和分流规则模板放在云端，客户端只需要订阅最终生成的链接。
 
 English: [README.en.md](README.en.md)
+
+## 文档
+
+- [部署说明](docs/deployment.md)
+- [AI Agent 安装](docs/ai-agent-install.md)
+- [产品边界](docs/product-scope.md)
+- [架构说明](docs/architecture.md)
+- [贡献指南](CONTRIBUTING.md)
+- [安全策略](SECURITY.md)
+- [变更记录](CHANGELOG.md)
 
 ## 最快部署
 
@@ -180,6 +199,10 @@ pnpm run check:release
 ```
 
 这个命令会检查 Worker、构建前端，并扫描当前文件和 `main` 历史里的常见发布风险。
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=realchendahuang/sub-store-cloudflare&type=Date)](https://www.star-history.com/#realchendahuang/sub-store-cloudflare&Date)
 
 ## 致谢
 

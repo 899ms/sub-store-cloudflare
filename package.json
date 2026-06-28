@@ -1,6 +1,26 @@
 {
   "name": "sub-store-cloudflare-workspace",
   "version": "0.1.0",
+  "description": "Cloudflare-native subscription aggregation and routing template manager powered by Workers, Static Assets, D1, and Worker Secrets.",
+  "homepage": "https://github.com/realchendahuang/sub-store-cloudflare#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/realchendahuang/sub-store-cloudflare.git"
+  },
+  "bugs": {
+    "url": "https://github.com/realchendahuang/sub-store-cloudflare/issues"
+  },
+  "license": "AGPL-3.0-or-later",
+  "keywords": [
+    "sub-store",
+    "cloudflare",
+    "workers",
+    "d1",
+    "mihomo",
+    "sing-box",
+    "subscription",
+    "proxy"
+  ],
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -32,6 +52,7 @@
     "check:worker-contract": "node scripts/check-worker-contract.mjs",
     "check:open-source": "node scripts/check-open-source.mjs",
     "check:history": "node scripts/check-git-history.mjs",
+    "release:prepare": "node scripts/prepare-release.mjs",
     "check:release": "pnpm run check && pnpm run check:agent && pnpm run check:module-format && pnpm run check:worker-contract && pnpm run check:deploy-config && pnpm run check:deploy-config -- wrangler.jsonc && pnpm run check:open-source && pnpm run check:history -- main"
   },
   "cloudflare": {

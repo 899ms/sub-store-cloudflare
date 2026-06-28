@@ -1,10 +1,29 @@
 # Sub-Store Cloudflare
 
+[![CI](https://github.com/realchendahuang/sub-store-cloudflare/actions/workflows/ci.yml/badge.svg)](https://github.com/realchendahuang/sub-store-cloudflare/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/realchendahuang/sub-store-cloudflare?include_prereleases&sort=semver)](https://github.com/realchendahuang/sub-store-cloudflare/releases)
+[![License: AGPL-3.0](https://img.shields.io/github/license/realchendahuang/sub-store-cloudflare)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/realchendahuang/sub-store-cloudflare?style=flat)](https://github.com/realchendahuang/sub-store-cloudflare/stargazers)
+[![Forks](https://img.shields.io/github/forks/realchendahuang/sub-store-cloudflare?style=flat)](https://github.com/realchendahuang/sub-store-cloudflare/forks)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers/)
+[![D1](https://img.shields.io/badge/Storage-D1-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/d1/)
+[![pnpm](https://img.shields.io/badge/pnpm-11.7.0-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/sub-store-cloudflare)
 
 A small Cloudflare Workers app for subscription aggregation, cloud-side node processing, and routing templates.
 
 Chinese is the primary documentation language for this repository. See [README.md](README.md).
+
+## Docs
+
+- [Deployment](docs/deployment.md)
+- [AI Agent install](docs/ai-agent-install.md)
+- [Product scope](docs/product-scope.md)
+- [Architecture](docs/architecture.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+- [Changelog](CHANGELOG.md)
 
 ## Fastest Install
 
@@ -97,5 +116,9 @@ See [docs/deployment.md](docs/deployment.md) and [docs/ai-agent-install.md](docs
 ## Acknowledgements
 
 This project is inspired by and pays respect to [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store). The original project is the full-featured subscription management system; this repository focuses on a smaller Cloudflare-native deployment.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=realchendahuang/sub-store-cloudflare&type=Date)](https://www.star-history.com/#realchendahuang/sub-store-cloudflare&Date)
 
 See [LICENSE](LICENSE) and [NOTICE](NOTICE).
