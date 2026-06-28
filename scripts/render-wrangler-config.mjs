@@ -35,7 +35,7 @@ const config = {
     directory: "../frontend/dist",
     binding: "ASSETS",
     not_found_handling: "single-page-application",
-    run_worker_first: ["/api/*", "/download/*", "/sw.js", "/registerSW.js"],
+    run_worker_first: true,
   },
   observability: {
     enabled: true,
