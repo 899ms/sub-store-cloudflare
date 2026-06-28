@@ -1,5 +1,6 @@
 import { useAppNotifyStore } from '@/store/appNotify';
 import axios, { AxiosError, AxiosPromise, AxiosResponse } from 'axios';
+import i18n from '@/locales';
 import { getHostAPIUrl } from '@/hooks/useHostAPI';
 import { getApiRequestTimeout } from '@/utils/requestTimeout';
 
@@ -45,12 +46,12 @@ const getResponseTitle = (e: AxiosError<ErrorResponse>) => {
 
   const responseText = getText(e.response?.statusText);
   if (e.response?.status && responseText)
-    return `请求失败: ${e.response.status} ${responseText}`;
+    return i18n.global.t("globalNotify.request.failedWithStatus", { status: e.response.status, statusText: responseText });
 
   if (e.response?.status)
-    return `请求失败: ${e.response.status}`;
+    return i18n.global.t("globalNotify.request.failedStatusOnly", { status: e.response.status });
 
-  return '请求失败';
+  return i18n.global.t("globalNotify.request.failed");
 };
 
 const getResponseContent = (e: AxiosError<ErrorResponse>) => {
@@ -129,10 +130,10 @@ service.interceptors.response.use(
     // 如果是网络错误，则提示网络错误
     if (!e.response || e.response.status === 0) {
       appNotifyStore.showNotify({
-        title: '网络错误或后端异常，无法连接后端服务\n',
+        title: i18n.global.t("globalNotify.request.network"),
         content: [
           `code: ${e.response?.status ?? e.code ?? 'NO_RESPONSE'}`,
-          `msg: ${getText(e.message) || '请求没有收到响应'}`,
+          `msg: ${getText(e.message) || i18n.global.t("globalNotify.request.noResponse")}`,
         ].join('\n'),
         ...notifyConfig,
       });

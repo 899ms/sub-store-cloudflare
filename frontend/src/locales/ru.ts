@@ -18,8 +18,16 @@ export default {
       flowFailed: "Ошибка обновления {name}!",
       failed: "Ошибка обновления\n",
       loading: "Обновление данных...",
+      backendChanged: "Бэкенд изменился. Обновление данных...",
       rePwaing: "Сброс кэша PWA...",
       rePwa: "Кэш PWA успешно сброшен. Страница скоро обновится..."
+    },
+    request: {
+      failedWithStatus: "Ошибка запроса: {status} {statusText}",
+      failedStatusOnly: "Ошибка запроса: {status}",
+      failed: "Ошибка запроса",
+      network: "Ошибка сети или бэкенд недоступен\n",
+      noResponse: "Ответ не получен"
     }
   },
   navBar: {
@@ -243,7 +251,18 @@ export default {
         },
         subscriptionTags: {
           label: "Теги включаемых подписок",
-          placeholder: "Нажмите иконку справа. Включить все подписки, содержащие хотя бы один из указанных тегов (через запятую)."
+          placeholder: "Нажмите иконку справа. Включить все подписки, содержащие хотя бы один из указанных тегов (через запятую).",
+          tips: {
+            title: "Коллекции и одиночные подписки",
+            content: "Коллекция включает:\n\n1. Одиночные подписки, найденные по связанным тегам\n\n2. Одиночные подписки, выбранные вручную\n\nНапример, если указаны теги \"A, B\", все одиночные подписки с тегом \"A\" или \"B\" будут включены автоматически."
+          }
+        },
+        template: {
+          label: "Шаблон правил",
+          pickerTitle: "Выбрать шаблон правил",
+          builtIn: "Встроенный шаблон",
+          custom: "Пользовательский шаблон",
+          tips: "Тип: {type}\nЦель: {target}\n\nШаблон добавляет proxy groups, rule providers и routing rules в создаваемую подписку коллекции."
         },
         source: {
           label: "Источник",
@@ -283,7 +302,11 @@ export default {
             success: "Разобрано узлов: {count}",
             detail: "Протоколы: {types}",
             failed: "Не найдено действительных узлов",
-            noNodes: "Не найдено действительных узлов"
+            noNodes: "Не найдено действительных узлов",
+            importFailed: "Ошибка импорта файла",
+            compareLoading: "Создание сравнения узлов...",
+            submitLoading: "Получение подписки...",
+            submitBusy: "Подписка уже загружается. Не отправляйте повторно."
           },
           tips: {
             title: "Содержимое подписки",
@@ -318,11 +341,19 @@ export default {
         ua: {
           label: "User-Agent",
           placeholder: "User-Agent для скачивания ресурсов",
-          placeholderDisabled: "Пользовательский UA отключен при сквозной передаче"
+          placeholderDisabled: "Пользовательский UA отключен при сквозной передаче",
+          tips: {
+            title: "По умолчанию используется глобальный UA",
+            content: "Попробуйте User-Agent клиента, например clash-verge/v2.4.6 или v2rayNG, чтобы провайдер мог вернуть больше протоколов. При необходимости укажите фактическую версию клиента."
+          }
         },
         subUserinfo: {
           label: "Данные подписки в заголовке",
-          placeholder: "upload=...; download=...; total=..."
+          placeholder: "upload=...; download=...; total=...",
+          tips: {
+            title: "Ручная информация о трафике",
+            content: "Заполните данные в формате subscription-userinfo. Если нужно получать трафик с отдельного URL, задайте flowUrl в hash-параметрах удаленной подписки.\n\nПример:\n\nupload=1024; download=10240; total=102400; expire=4115721600; reset_day=14; plan_name=VIP1; app_url=http%3A%2F%2Fa.com\n\n1. app_url отображается как кликабельная ссылка. URL должен быть закодирован.\n\n2. plan_name отображается как название тарифа.\n\n3. reset_day означает оставшиеся дни до сброса трафика.\n\nРучные значения разбираются вместе с заголовками ответа удаленной подписки."
+          }
         },
         firstSubFlow: {
           label: "Пробрасывать инфо о трафике первой подписки",
@@ -382,7 +413,11 @@ export default {
         },
         pasteAction: {
           label: "Импорт из буфера",
-          placeholder: "Не удалось прочитать. Пожалуйста, вставьте данные в это поле вручную."
+          placeholder: "Не удалось прочитать. Пожалуйста, вставьте данные в это поле вручную.",
+          copied: "Данные действия скопированы. Их можно импортировать позже.",
+          importFailed: "Ошибка импорта {e}",
+          sourceMismatch: "Действия файлов и подписок несовместимы",
+          invalidData: "Некорректный формат данных"
         },
         enable: "Включить",
         disable: "Выключить"
@@ -401,7 +436,10 @@ export default {
             "Оставить без изменений"
           ],
           tipsTitle: "Подсказки по флагам",
-          tipsDes: "Инструкции по модификации флагов в именах узлов"
+          tipsDes: "Инструкции по модификации флагов в именах узлов",
+          twWhenPrefix: "Когда распознано как",
+          twWhenSuffix: "",
+          disclaimer: "Дисклеймер: это действие заменяет только emoji-флаги для отображения и не несет политического смысла."
         },
         "Sort Operator": {
           label: "Сортировка узлов",
@@ -442,6 +480,15 @@ export default {
           ],
           concurrency: "Конкурентность запросов",
           concurrencyPlaceholder: "По умолчанию 10. Рекомендуется ставить не более 20",
+          customDohPlaceholder: "Поддерживается только DoH",
+          edns: "EDNS (Google, Ali, Tencent и кастомный DoH передают этот параметр; он может повлиять на результат)",
+          ednsPlaceholder: "Введите обычный IP. По умолчанию: 223.6.6.6",
+          resolveType: "Тип резолва (IPv6 поддерживает IP4P)",
+          filterResult: "Результат фильтрации",
+          unsupported: "{provider} не поддерживает {type}",
+          ip4pTitle: "Формат адреса IP4P",
+          ip4pContent: "При выборе IPv6 адреса IP4P будут преобразованы автоматически.\n\nИз NATMap: IPv4-адрес и порт кодируются в DNS AAAA-записи.\n\nСценарий: STUN NAT traversal без публичного сервера.",
+          ip4pOk: "Подробнее",
           tipsTitle: "Подсказки по резолву",
           tipsDes: "Инструкции по разрешению доменных имен узлов в IP-адреса"
         },
@@ -664,7 +711,13 @@ export default {
     notify: {
       save: {
         succeed: "Сохранено",
-        failed: "Ошибка сохранения"
+        failed: "Ошибка сохранения",
+        configLoadFailed: "Не удалось загрузить настройки",
+        configUpdateFailed: "Не удалось обновить настройки",
+        themeLoading: "Переключение темы...",
+        themeFailed: "Не удалось переключить тему",
+        appearanceLoading: "Сохранение настроек интерфейса...",
+        appearanceFailed: "Не удалось сохранить настройки интерфейса"
       },
       restore: {
         succeed: "Восстановлено",
@@ -675,6 +728,10 @@ export default {
   },
   comparePage: {
     title: "Мгновенный предпросмотр",
+    loading: "Создание сравнения узлов...",
+    filePreviewCopyLabel: "Нажмите, чтобы скопировать и использовать как внешний ресурс:",
+    filePreviewLoadFailed: "Ошибка загрузки: {e}",
+    filePreviewCopied: "Ссылка скопирована: {url}",
     remain: {
       title: "оставшиеся узлы",
       beforeIndicator: "до",
@@ -720,6 +777,12 @@ export default {
       }
     }
   },
+  codeEditor: {
+    copiedLength: "Скопировано символов: {count}",
+    cleared: "Очищено",
+    pastedLength: "Вставлено символов: {count}",
+    clipboardFailed: "Не удалось прочитать буфер: доступно на localhost/HTTPS или после выдачи разрешения"
+  },
   iconCollectionPage: {
     iconCollection: "Коллекция иконок",
     iconCollectionPlaceholder: "Введите URL-адрес коллекции иконок",
@@ -743,37 +806,6 @@ export default {
       title: "Выбрать коллекцию иконок",
       cancel: "Отмена",
       confirm: "Подтвердить"
-    }
-  },
-  ageKey: {
-    publicKey: {
-      label: "age encryption public key",
-      placeholder: "Введите age encryption public key",
-      tips: {
-        title: "age шифрование вывода",
-        content: "Backend >= 2.24.1\nВ среде proxy app может не хватать нужных API; полное тестирование пока не проводилось.\nКлюч, заданный в share или sync artifact, имеет приоритет.\nПосле включения шифрования вывод неудобно проверять, поэтому рекомендуется задавать этот ключ только в share или sync artifact.\nНажмите кнопку справа, чтобы создать ключи."
-      }
-    },
-    secretKey: {
-      label: "age decryption secret key",
-      placeholder: "Вставьте AGE-SECRET-KEY-1... или AGE-SECRET-KEY-PQ-1..., чтобы получить age encryption public key"
-    },
-    helper: {
-      open: "Создать",
-      title: "age key helper",
-      type: "Тип",
-      generate: "Создать",
-      applyPublic: "Заполнить",
-      derive: "Из secret",
-      copyPublic: "Копировать",
-      copySecret: "Копировать",
-      close: "Закрыть",
-      clearPublic: "Очистить age encryption public key",
-      clearSecret: "Очистить age decryption secret key",
-      copied: "Скопировано",
-      filled: "Заполнено",
-      error: "Ошибка операции age key",
-      tips: "Поддерживаются только нативные age ключи X25519 и MLKEM768-X25519. Созданный age decryption secret key показывается только в этом окне; сохраните его безопасно. Age encryption public key можно записать в поле конфигурации для шифрования финального вывода."
     }
   }
 };

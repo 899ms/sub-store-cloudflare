@@ -322,7 +322,7 @@ const copyText = async () => {
   if (x) {
     showNotify({
       type: "success",
-      title: "已复制字符串数: " + x?.text?.length,
+      title: t("codeEditor.copiedLength", { count: x?.text?.length }),
     });
   }
 };
@@ -332,7 +332,7 @@ const delAllCode = () => {
   cmStore.CodeClear([props.id], true);
   showNotify({
     type: "success",
-    title: "已清空",
+    title: t("codeEditor.cleared"),
   });
 };
 
@@ -343,13 +343,13 @@ const pasteNav = async () => {
       cmStore.setEditCode([props.id], clipboardText);
       showNotify({
         type: "success",
-        title: "已粘贴字数: " + clipboardText.length,
+        title: t("codeEditor.pastedLength", { count: clipboardText.length }),
       });
     }
   } catch (e) {
     showNotify({
       type: "warning",
-      title: "获取剪贴板失败: 本地/HTTPS 环境下可用(或手动配置权限)"
+      title: t("codeEditor.clipboardFailed")
     });
   }
 };

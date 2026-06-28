@@ -18,8 +18,16 @@ export default {
       flowFailed: "刷新 {name} 失败！",
       failed: "数据刷新失败\n",
       loading: "刷新数据中...",
+      backendChanged: "检测到后端变化，更新数据中...",
       rePwa: "重置 PWA 缓存成功，即将刷新页面...",
       rePwaing: "重置 PWA 缓存中..."
+    },
+    request: {
+      failedWithStatus: "请求失败: {status} {statusText}",
+      failedStatusOnly: "请求失败: {status}",
+      failed: "请求失败",
+      network: "网络错误或后端异常，无法连接后端服务\n",
+      noResponse: "请求没有收到响应"
     }
   },
   navBar: {
@@ -243,7 +251,18 @@ export default {
         },
         subscriptionTags: {
           label: "关联订阅标签",
-          placeholder: "点击右侧图标选择，使用标签关联单条订阅(用 , 分隔)"
+          placeholder: "点击右侧图标选择，使用标签关联单条订阅(用 , 分隔)",
+          tips: {
+            title: "组合订阅与单条订阅",
+            content: "组合订阅中将包含\n\n1. 含有关联订阅标签的单条订阅\n\n2. 手动选择的单条订阅\n\n举例: 设置了关联订阅标签为 \"A, B\" 后\n包含标签 \"A\" 或 \"B\" 的单条订阅将自动关联到此组合订阅"
+          }
+        },
+        template: {
+          label: "规则模板",
+          pickerTitle: "选择规则模板",
+          builtIn: "内置模板",
+          custom: "自定义模板",
+          tips: "类型：{type}\n输出：{target}\n\n模板会在生成组合订阅时写入代理组、规则提供者和分流规则。"
         },
         source: {
           label: "来源",
@@ -283,7 +302,11 @@ export default {
             success: "已解析 {count} 个节点",
             detail: "协议分布: {types}",
             failed: "未解析到有效节点",
-            noNodes: "未解析到有效节点"
+            noNodes: "未解析到有效节点",
+            importFailed: "文件导入失败",
+            compareLoading: "生成节点对比中...",
+            submitLoading: "拉取订阅中...",
+            submitBusy: "拉取订阅中，请勿重复点击..."
           },
           tips: {
             title: "本地订阅节点",
@@ -318,11 +341,19 @@ export default {
         ua: {
           label: "User-Agent",
           placeholder: "下载时使用的 UA，不填使用默认",
-          placeholderDisabled: "透传时禁用自定义 UA"
+          placeholderDisabled: "透传时禁用自定义 UA",
+          tips: {
+            title: "默认使用配置中的全局 UA",
+            content: "可尝试设置为 clash-verge/v2.4.6、v2rayNG 等客户端的 User-Agent，让机场后端下发更多协议。可根据实际情况改成当前客户端版本号。"
+          }
         },
         subUserinfo: {
           label: "订阅流量信息",
-          placeholder: "upload=...; download=...; total=..."
+          placeholder: "upload=...; download=...; total=...",
+          tips: {
+            title: "手动设置订阅流量信息",
+            content: "填写 subscription-userinfo 风格的流量信息。若需要从单独 URL 查询流量，请在远程订阅链接的 # 参数里设置 flowUrl。\n\n格式示例:\n\nupload=1024; download=10240; total=102400; expire=4115721600; reset_day=14; plan_name=VIP1; app_url=http%3A%2F%2Fa.com\n\n1. app_url 会显示为可点击跳转按钮，URL 请编码。\n\n2. plan_name 会作为套餐名称显示。\n\n3. reset_day 表示流量重置剩余天数。\n\n手动填写的值会和远程订阅响应头一起解析。"
+          }
         },
         firstSubFlow: {
           label: "透传单条订阅流量信息",
@@ -382,7 +413,11 @@ export default {
         },
         pasteAction: {
           label: "从剪贴板导入",
-          placeholder: "自动读取剪贴板失败, 请在此文本框内手动粘贴数据"
+          placeholder: "自动读取剪贴板失败, 请在此文本框内手动粘贴数据",
+          copied: "已复制数据，可用于导入",
+          importFailed: "导入失败 {e}",
+          sourceMismatch: "文件操作与订阅操作不通用",
+          invalidData: "数据格式错误"
         },
         enable: "启用",
         disable: "禁用"
@@ -401,7 +436,10 @@ export default {
             "保持不变"
           ],
           tipsTitle: "旗帜操作提示",
-          tipsDes: "为节点添加或者移除旗帜\n\n免责声明: 旗帜 指 Emoji 旗帜, 不包含任何政治意味"
+          tipsDes: "为节点添加或者移除旗帜\n\n免责声明: 旗帜 指 Emoji 旗帜, 不包含任何政治意味",
+          twWhenPrefix: "识别为",
+          twWhenSuffix: "时",
+          disclaimer: "免责声明: 本操作仅将 Emoji 旗帜进行替换以便于显示, 不包含任何政治意味"
         },
         "Sort Operator": {
           label: "节点排序",
@@ -442,6 +480,15 @@ export default {
           ],
           concurrency: "请求并发数",
           concurrencyPlaceholder: "默认 10. 在代理 App 中建议不超过 20",
+          customDohPlaceholder: "目前仅支持 DoH",
+          edns: "EDNS(Google, Ali, Tencent, 自定义 DoH 会携带此参数, 可能会影响解析结果)",
+          ednsPlaceholder: "请输入纯 IP, 默认为 223.6.6.6",
+          resolveType: "解析类型(IPv6 兼容 IP4P)",
+          filterResult: "过滤结果",
+          unsupported: "{provider} 不支持 {type}",
+          ip4pTitle: "IP4P 地址格式",
+          ip4pContent: "当选择解析类型为 IPv6 时\n将自动转换其中的 IP4P 地址\n\n来自 NATMap, 将 IPv4 地址和端口同时编码在 DNS AAAA 记录中\n\n使用场景: STUN 内网穿透, 无需公网服务器即可获得 IPv4 公网地址",
+          ip4pOk: "更多说明",
           tipsTitle: "域名解析操作提示",
           tipsDes: "将节点域名解析成为 IP 地址，减少一次额外的 DNS 请求"
         },
@@ -664,7 +711,13 @@ export default {
     notify: {
       save: {
         succeed: "保存成功",
-        failed: "保存失败"
+        failed: "保存失败",
+        configLoadFailed: "获取配置失败",
+        configUpdateFailed: "更新配置失败",
+        themeLoading: "切换主题中...",
+        themeFailed: "切换主题失败",
+        appearanceLoading: "保存外观设置中...",
+        appearanceFailed: "保存外观设置失败"
       },
       restore: {
         succeed: "恢复成功",
@@ -675,6 +728,10 @@ export default {
   },
   comparePage: {
     title: "即时预览",
+    loading: "生成节点对比中...",
+    filePreviewCopyLabel: "点击复制，在外部资源中使用:",
+    filePreviewLoadFailed: "加载失败: {e}",
+    filePreviewCopied: "已复制链接: {url}",
     remain: {
       title: "保留的节点",
       beforeIndicator: "操作前",
@@ -720,6 +777,12 @@ export default {
       }
     }
   },
+  codeEditor: {
+    copiedLength: "已复制字符串数: {count}",
+    cleared: "已清空",
+    pastedLength: "已粘贴字数: {count}",
+    clipboardFailed: "获取剪贴板失败: 本地/HTTPS 环境下可用(或手动配置权限)"
+  },
   iconCollectionPage: {
     iconCollection: "图标仓库",
     iconCollectionPlaceholder: "请输入图标仓库地址",
@@ -743,37 +806,6 @@ export default {
       title: "选择一个图标仓库",
       cancel: "取消",
       confirm: "确定"
-    }
-  },
-  ageKey: {
-    publicKey: {
-      label: "age 加密公钥",
-      placeholder: "请输入 age 加密公钥",
-      tips: {
-        title: "age 输出加密",
-        content: "后端 >= 2.24.1\n代理 App 中运行可能会缺环境 暂未进行完整测试\n分享/同步配置中配置的优先\n由于设置后加密输出不方便查看结果, 建议仅在分享/同步配置中配置\n可点击右侧按钮生成"
-      }
-    },
-    secretKey: {
-      label: "age 解密私钥",
-      placeholder: "可粘贴 AGE-SECRET-KEY-1... 或 AGE-SECRET-KEY-PQ-1... 用于推导 age 加密公钥"
-    },
-    helper: {
-      open: "生成",
-      title: "age key helper",
-      type: "类型",
-      generate: "一键生成",
-      applyPublic: "一键填入",
-      derive: "从私钥生成",
-      copyPublic: "复制",
-      copySecret: "复制",
-      close: "关闭",
-      clearPublic: "清空 age 加密公钥",
-      clearSecret: "清空 age 解密私钥",
-      copied: "已复制",
-      filled: "已填入",
-      error: "age key 操作失败",
-      tips: "只支持 age 原生 X25519 和 MLKEM768-X25519 key. 生成的 age 解密私钥只在此弹窗显示, 请妥善保存; age 加密公钥可写入配置字段用于加密最终输出."
     }
   }
 };

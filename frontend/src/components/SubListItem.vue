@@ -671,7 +671,7 @@ const openAppUrl = () => {
 };
 
 const fetchCompareData = async (data?: any) => {
-  Toast.loading("生成节点对比中...", {
+  Toast.loading(t("comparePage.loading"), {
     id: "compare",
     cover: true,
     duration: 1500,

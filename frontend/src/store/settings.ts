@@ -228,7 +228,7 @@ export const useSettingsStore = defineStore("settingsStore", {
       } else {
         this.hasFetchedSettings = false;
         showNotify({
-          title: `获取配置失败`,
+          title: t("myPage.notify.save.configLoadFailed"),
           type: "danger",
         });
       }
@@ -249,7 +249,7 @@ export const useSettingsStore = defineStore("settingsStore", {
         return true;
       } else {
         showNotify({
-          title: `更新配置失败`,
+          title: t("myPage.notify.save.configUpdateFailed"),
           type: "danger",
         });
         return false;
@@ -320,21 +320,21 @@ export const useSettingsStore = defineStore("settingsStore", {
       globalStore.setSubProgressStyle('hidden');
     },
     async changeTheme(data: SettingsPostData) {
-      Toast.loading("切换主题中...", { cover: true, id: "theme__loading" });
+      Toast.loading(t("myPage.notify.save.themeLoading"), { cover: true, id: "theme__loading" });
       const { showNotify } = useAppNotifyStore();
       const res = await settingsApi.setSettings(data);
       if (res?.data?.status === "success" && res?.data?.data) {
         this.theme = res.data.data.theme;
       } else {
         showNotify({
-          title: `切换主题失败`,
+          title: t("myPage.notify.save.themeFailed"),
           type: "danger",
         });
       }
       Toast.hide("theme__loading");
     },
     async changeAppearanceSetting(data: SettingsPostData) {
-      Toast.loading("保存外观设置中...", { cover: true, id: "theme__loading" });
+      Toast.loading(t("myPage.notify.save.appearanceLoading"), { cover: true, id: "theme__loading" });
       const { showNotify } = useAppNotifyStore();
       const res = await settingsApi.setSettings(data);
       if (res?.data?.status === "success" && res?.data?.data) {
@@ -342,7 +342,7 @@ export const useSettingsStore = defineStore("settingsStore", {
         this.applyAppearanceSetting(res.data.data.appearanceSetting);
       } else {
         showNotify({
-          title: `保存外观设置失败`,
+          title: t("myPage.notify.save.appearanceFailed"),
           type: "danger",
         });
       }

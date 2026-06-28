@@ -11,7 +11,7 @@
             class="input-wrapper compact-input-wrapper compact-input-wrapper--custom"
             v-if="type === 'Resolve Domain Operator' && value==='Custom' && key==='Custom'"
           >
-            <nut-input placeholder="目前仅支持 DoH" v-model="rdoUrl" />
+            <nut-input :placeholder="$t(`editorPage.subConfig.nodeActions['${type}'].customDohPlaceholder`)" v-model="rdoUrl" />
           </div>
           <div v-else>
             {{
@@ -23,9 +23,9 @@
     </div>
     <template v-if="type === 'Resolve Domain Operator' && rdoNewVersion">
       <div class="radio-wrapper options-radio edns-input-option">
-        <p class="des-label">EDNS(Google, Ali, Tencent, 自定义 DoH 会携带此参数, 可能会影响解析结果)</p>
+        <p class="des-label">{{ $t(`editorPage.subConfig.nodeActions['${type}'].edns`) }}</p>
         <div class="input-wrapper compact-input-wrapper compact-input-wrapper--edns">
-          <nut-input placeholder="请输入纯 IP, 默认为 223.6.6.6" v-model="rdoEdns" />
+          <nut-input :placeholder="$t(`editorPage.subConfig.nodeActions['${type}'].ednsPlaceholder`)" v-model="rdoEdns" />
         </div>
       </div>
       <div class="radio-wrapper options-radio inline-input-option">
@@ -39,7 +39,7 @@
         </div>
       </div>
       <div class="radio-wrapper options-radio">
-        <p class="des-label" style="cursor: pointer" @click="rdoTypeInfo">解析类型(IPv6 兼容 IP4P <font-awesome-icon icon="fa-solid fa-circle-question"/>)</p>
+        <p class="des-label" style="cursor: pointer" @click="rdoTypeInfo">{{ $t(`editorPage.subConfig.nodeActions['${type}'].resolveType`) }} <font-awesome-icon icon="fa-solid fa-circle-question"/></p>
         <nut-radiogroup direction="horizontal" v-model="rdoType">
           <nut-radio v-for="(key, index) in rdoTypeOpt" :label="key" :key="index"
             >{{
@@ -51,7 +51,7 @@
       </div>
       
       <div class="radio-wrapper options-radio">
-        <p class="des-label">过滤结果</p>
+        <p class="des-label">{{ $t(`editorPage.subConfig.nodeActions['${type}'].filterResult`) }}</p>
         <nut-radiogroup direction="horizontal" v-model="rdoFilter">
           <nut-radio v-for="(key, index) in rdoFilterOpt" :label="key" :key="index"
             >{{
@@ -64,9 +64,9 @@
     <template v-if="type === 'Flag Operator' && foNewVersion && value === 'add'">
       <div class="radio-wrapper options-radio">
         <p class="des-label flag-operator" @click="showTwTips">
-            <span>识别为</span>
+            <span>{{ $t(`editorPage.subConfig.nodeActions['${type}'].twWhenPrefix`) }}</span>
             <img :src="tw" alt="">
-            <span>时</span>
+            <span>{{ $t(`editorPage.subConfig.nodeActions['${type}'].twWhenSuffix`) }}</span>
             <nut-icon name="tips" size="12px"></nut-icon>
         </p>
         <nut-radiogroup direction="horizontal" v-model="foTw">
@@ -89,8 +89,10 @@
   import { useGlobalStore } from '@/store/global';
   import { inject, onMounted, ref, watch } from 'vue';
   import tw from '@/assets/icons/tw.png';
+  import { useI18n } from 'vue-i18n';
 
   const globalStore = useGlobalStore();
+  const { t } = useI18n();
 
   const { showNotify } = useAppNotifyStore();
 
@@ -147,15 +149,15 @@
   };
 
   const showTwTips = () => {
-    Toast.text('免责声明: 本操作仅将 Emoji 旗帜进行替换以便于显示, 不包含任何政治意味');
+    Toast.text(t("editorPage.subConfig.nodeActions['Flag Operator'].disclaimer"));
   };
   const rdoTypeInfo = () => {
     Dialog({
-      title: 'IP4P 地址格式',
-      content: '🆕 当选择解析类型为 IPv6 时\n将自动转换其中的 IP4P 地址\n\n来自 NATMap, 将 IPv4 地址和端口同时编码在 DNS AAAA 记录中\n\n使用场景: STUN 内网穿透, 无需公网服务器即可获得 IPv4 公网地址',
+      title: t("editorPage.subConfig.nodeActions['Resolve Domain Operator'].ip4pTitle"),
+      content: t("editorPage.subConfig.nodeActions['Resolve Domain Operator'].ip4pContent"),
       popClass: 'auto-dialog',
-      okText: '更多说明',
-      cancelText: '取消',
+      okText: t("editorPage.subConfig.nodeActions['Resolve Domain Operator'].ip4pOk"),
+      cancelText: t("editorPage.subConfig.pop.deleteCancel"),
       // @ts-ignore
       closeOnClickOverlay: true,
       onOk: async () => {
@@ -202,7 +204,10 @@
   watch([value, rdoFilter, rdoCache, rdoUrl, rdoEdns, rdoConcurrency, rdoType, foTw], () => {
     if (['IPv6', 'IP4P'].includes(rdoType.value) && ['IP-API'].includes(value.value)) {
       showNotify({
-        title: `${value.value} 不支持 ${rdoType.value}`,
+        title: t("editorPage.subConfig.nodeActions['Resolve Domain Operator'].unsupported", {
+          provider: value.value,
+          type: rdoType.value,
+        }),
         type: 'danger',
       });
     }

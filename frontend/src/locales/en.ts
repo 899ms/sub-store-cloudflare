@@ -18,8 +18,16 @@ export default {
       flowFailed: "Refresh of {name} failed!",
       failed: "Refresh Failed\n",
       loading: "Refreshing Data...",
+      backendChanged: "Backend changed. Refreshing data...",
       rePwaing: "Resetting PWA cache...",
       rePwa: "PWA cache reset successfully. The page will refresh soon..."
+    },
+    request: {
+      failedWithStatus: "Request failed: {status} {statusText}",
+      failedStatusOnly: "Request failed: {status}",
+      failed: "Request failed",
+      network: "Network error or backend unavailable\n",
+      noResponse: "No response received"
     }
   },
   navBar: {
@@ -243,7 +251,18 @@ export default {
         },
         subscriptionTags: {
           label: "Subscription Tag(s)",
-          placeholder: "Click on the right icon, Include all subscriptions that contain one of these tag(s) (separated by comma)"
+          placeholder: "Click on the right icon, Include all subscriptions that contain one of these tag(s) (separated by comma)",
+          tips: {
+            title: "Collections and single subscriptions",
+            content: "A collection includes:\n\n1. Single subscriptions matched by linked subscription tags\n\n2. Manually selected single subscriptions\n\nFor example, if linked tags are \"A, B\", every single subscription tagged with \"A\" or \"B\" will be included automatically."
+          }
+        },
+        template: {
+          label: "Rule Template",
+          pickerTitle: "Select Rule Template",
+          builtIn: "Built-in template",
+          custom: "Custom template",
+          tips: "Type: {type}\nTarget: {target}\n\nThe template writes proxy groups, rule providers, and routing rules into generated collection subscriptions."
         },
         source: {
           label: "Source",
@@ -283,7 +302,11 @@ export default {
             success: "Parsed {count} node(s)",
             detail: "Protocol mix: {types}",
             failed: "No valid nodes parsed",
-            noNodes: "No valid nodes parsed"
+            noNodes: "No valid nodes parsed",
+            importFailed: "File import failed",
+            compareLoading: "Generating node comparison...",
+            submitLoading: "Fetching subscription...",
+            submitBusy: "Subscription is being fetched. Do not submit again."
           },
           tips: {
             title: "The content of the subscription",
@@ -318,11 +341,19 @@ export default {
         ua: {
           label: "User-Agent",
           placeholder: "The User-Agent for downloading resource(s)",
-          placeholderDisabled: "Disable custom UA when passing through"
+          placeholderDisabled: "Disable custom UA when passing through",
+          tips: {
+            title: "Uses the global UA by default",
+            content: "Try using a client User-Agent such as clash-verge/v2.4.6 or v2rayNG so providers may return more protocols. Adjust it to match the client version you actually use."
+          }
         },
         subUserinfo: {
           label: "Subscription-Userinfo",
-          placeholder: "upload=...; download=...; total=..."
+          placeholder: "upload=...; download=...; total=...",
+          tips: {
+            title: "Manual subscription usage info",
+            content: "Fill in subscription-userinfo style usage info. To query usage from a separate URL, set flowUrl in the remote subscription URL hash parameters.\n\nExample:\n\nupload=1024; download=10240; total=102400; expire=4115721600; reset_day=14; plan_name=VIP1; app_url=http%3A%2F%2Fa.com\n\n1. app_url is shown as a clickable link. Encode the URL first.\n\n2. plan_name is shown as the plan name.\n\n3. reset_day means remaining days until traffic reset.\n\nManual values are parsed together with remote subscription response headers."
+          }
         },
         firstSubFlow: {
           label: "Pass Through Single Subscription Traffic Info",
@@ -382,7 +413,11 @@ export default {
         },
         pasteAction: {
           label: "Import Data From Clipboard",
-          placeholder: "Failed to read the clipboard automatically, please paste the data manually in this text box."
+          placeholder: "Failed to read the clipboard automatically, please paste the data manually in this text box.",
+          copied: "Action data copied. It can be imported later.",
+          importFailed: "Import failed {e}",
+          sourceMismatch: "File actions and subscription actions are not interchangeable",
+          invalidData: "Invalid data format"
         },
         enable: "Enable",
         disable: "Disable"
@@ -401,7 +436,10 @@ export default {
             "Unchanged"
           ],
           tipsTitle: "flags Tips",
-          tipsDes: "Flag operation instructions"
+          tipsDes: "Flag operation instructions",
+          twWhenPrefix: "When detected as",
+          twWhenSuffix: "",
+          disclaimer: "Disclaimer: this action only replaces emoji flags for display and has no political meaning."
         },
         "Sort Operator": {
           label: "Node Sort",
@@ -442,6 +480,15 @@ export default {
           ],
           concurrency: "Request Concurrency",
           concurrencyPlaceholder: "Default 10. Keep proxy apps at 20 or less",
+          customDohPlaceholder: "DoH only",
+          edns: "EDNS (Google, Ali, Tencent, and custom DoH carry this parameter; it may affect results)",
+          ednsPlaceholder: "Enter a plain IP. Default: 223.6.6.6",
+          resolveType: "Resolve type (IPv6 supports IP4P)",
+          filterResult: "Filter result",
+          unsupported: "{provider} does not support {type}",
+          ip4pTitle: "IP4P address format",
+          ip4pContent: "When IPv6 is selected, IP4P addresses are converted automatically.\n\nFrom NATMap, the IPv4 address and port are encoded in DNS AAAA records.\n\nUse case: STUN NAT traversal without a public server.",
+          ip4pOk: "Learn more",
           tipsTitle: "domain Tips",
           tipsDes: "Operation instructions for node domain name resolution"
         },
@@ -664,7 +711,13 @@ export default {
     notify: {
       save: {
         succeed: "Saved",
-        failed: "Save failed"
+        failed: "Save failed",
+        configLoadFailed: "Failed to load settings",
+        configUpdateFailed: "Failed to update settings",
+        themeLoading: "Switching theme...",
+        themeFailed: "Failed to switch theme",
+        appearanceLoading: "Saving appearance settings...",
+        appearanceFailed: "Failed to save appearance settings"
       },
       restore: {
         succeed: "Restored",
@@ -675,6 +728,10 @@ export default {
   },
   comparePage: {
     title: "Instant Preview",
+    loading: "Generating node comparison...",
+    filePreviewCopyLabel: "Click to copy and use as an external resource:",
+    filePreviewLoadFailed: "Load failed: {e}",
+    filePreviewCopied: "Copied link: {url}",
     remain: {
       title: "remain nodes",
       beforeIndicator: "before",
@@ -720,6 +777,12 @@ export default {
       }
     }
   },
+  codeEditor: {
+    copiedLength: "Copied characters: {count}",
+    cleared: "Cleared",
+    pastedLength: "Pasted characters: {count}",
+    clipboardFailed: "Failed to read clipboard: available on localhost/HTTPS or after granting permission"
+  },
   iconCollectionPage: {
     iconCollection: "Icon Collection",
     iconCollectionPlaceholder: "Please input icon collection url",
@@ -743,37 +806,6 @@ export default {
       title: "Select a icon collection",
       cancel: "Cancel",
       confirm: "Confirm"
-    }
-  },
-  ageKey: {
-    publicKey: {
-      label: "age encryption public key",
-      placeholder: "Enter age encryption public key",
-      tips: {
-        title: "age Output Encryption",
-        content: "Backend >= 2.24.1\nProxy app runtimes may lack required APIs; complete testing has not been done yet.\nThe key configured in a share or sync artifact takes priority.\nBecause encrypted output is inconvenient to inspect after this is set, it is recommended to configure it only in shares or sync artifacts.\nClick the button on the right to generate keys."
-      }
-    },
-    secretKey: {
-      label: "age decryption secret key",
-      placeholder: "Paste AGE-SECRET-KEY-1... or AGE-SECRET-KEY-PQ-1... to derive an age encryption public key"
-    },
-    helper: {
-      open: "Generate",
-      title: "age key helper",
-      type: "Type",
-      generate: "Generate",
-      applyPublic: "Fill in",
-      derive: "From secret",
-      copyPublic: "Copy",
-      copySecret: "Copy",
-      close: "Close",
-      clearPublic: "Clear age encryption public key",
-      clearSecret: "Clear age decryption secret key",
-      copied: "Copied",
-      filled: "Filled in",
-      error: "age key operation failed",
-      tips: "Only native age X25519 and MLKEM768-X25519 keys are supported. The generated age decryption secret key is shown only in this dialog; save it securely. The age encryption public key can be written to the config field to encrypt final output."
     }
   }
 };

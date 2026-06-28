@@ -312,7 +312,7 @@
         <template v-else-if="editType === 'collections'">
           <nut-cell class="nut-form-item line template-trigger" @click.stop="openTemplatePicker">
             <view class="nut-cell__title nut-form-item__label">
-              规则模板
+              {{ $t(`editorPage.subConfig.basic.template.label`) }}
             </view>
             <view class="nut-cell__value nut-form-item__body">
               <view class="nut-form-item__body__slots">
@@ -535,7 +535,7 @@
     v-model="selectedTemplateValue"
     v-model:visible="showTemplatePicker"
     :columns="templateColumns"
-    title="选择规则模板"
+    :title="$t(`editorPage.subConfig.basic.template.pickerTitle`)"
     :cancel-text="$t(`editorPage.subConfig.sourceNamePicker.cancel`)"
     :ok-text="$t(`editorPage.subConfig.sourceNamePicker.confirm`)"
     @confirm="handleTemplateConfirm"
@@ -891,7 +891,9 @@ const selectedSubsDisplay = computed(() => selectedSubs.value.replace(/^:\s*/, "
   const templateColumns = computed(() => {
     return templateOptions.value.map((template) => {
       const label = template.displayName || template.name;
-      const type = template.readonly ? "内置" : "自定义";
+      const type = template.readonly
+        ? t("editorPage.subConfig.basic.template.builtIn")
+        : t("editorPage.subConfig.basic.template.custom");
       return {
         text: `${label}（${type} · ${template.target || "mihomo"}）`,
         value: template.name,
@@ -1213,13 +1215,13 @@ const fileChange = async (event) => {
   } catch (e) {
     showNotify({
       type: "danger",
-      title: '文件导入失败',
+      title: t("editorPage.subConfig.basic.content.validation.importFailed"),
     });
     console.error(e);
   }
 };
 const fetchCompareData = async () => {
-  Toast.loading("生成节点对比中...", {
+  Toast.loading(t("editorPage.subConfig.basic.content.validation.compareLoading"), {
     id: "compare",
     cover: true,
     duration: 1500,
@@ -1233,7 +1235,6 @@ const fetchCompareData = async () => {
     delete data.firstSubFlow;
     delete data.proxy;
     delete data.mergeSources;
-    delete data["age-public-key"];
     data.tag = [
       ...new Set(
         (data.tag || "")
@@ -1339,7 +1340,7 @@ const submit = () => {
   if (isget.value) {
     showNotify({
       type: "success",
-      title: "拉取订阅中，请勿重复点击...",
+      title: t("editorPage.subConfig.basic.content.validation.submitBusy"),
     });
     return;
   }
@@ -1360,14 +1361,13 @@ const submit = () => {
       });
       return;
     }
-    Toast.loading("拉取订阅中...", {
+    Toast.loading(t("editorPage.subConfig.basic.content.validation.submitLoading"), {
       id: "submits",
       cover: true,
       duration: 1500,
     });
     // 如果验证成功，开始保存/修改
     const data: any = JSON.parse(JSON.stringify(toRaw(form)));
-    delete data["age-public-key"];
     delete data.proxy;
     delete data.mergeSources;
     data.tag = [
@@ -1492,8 +1492,8 @@ const urlValidator = (val: string): Promise<boolean> => {
   }
   const uaTips = () => {
     Dialog({
-        title: '默认使用配置中的全局 UA',
-        content: '可尝试设置为 clash-verge/v2.4.6, v2rayNG 等客户端的 User-Agent 让机场后端下发更多协议(可根据实际情况改成最新版本号)',
+        title: t("editorPage.subConfig.basic.ua.tips.title"),
+        content: t("editorPage.subConfig.basic.ua.tips.content"),
         popClass: 'auto-dialog',
         okText: 'OK',
         noCancelBtn: true,
@@ -1503,8 +1503,8 @@ const urlValidator = (val: string): Promise<boolean> => {
   };
   const subUserinfoTips = () => {
     Dialog({
-        title: '手动设置订阅流量信息',
-        content: '填写 subscription-userinfo 风格的流量信息。若需要从单独 URL 查询流量，请在远程订阅链接的 # 参数里设置 flowUrl。\n\n格式示例:\n\nupload=1024; download=10240; total=102400; expire=4115721600; reset_day=14; plan_name=VIP1; app_url=http%3A%2F%2Fa.com\n\n1. app_url 会显示为可点击跳转按钮，URL 请编码。\n\n2. plan_name 会作为套餐名称显示。\n\n3. reset_day 表示流量重置剩余天数。\n\n手动填写的值会和远程订阅响应头一起解析。',
+        title: t("editorPage.subConfig.basic.subUserinfo.tips.title"),
+        content: t("editorPage.subConfig.basic.subUserinfo.tips.content"),
         popClass: 'auto-dialog',
         okText: 'OK',
         noCancelBtn: true,
@@ -1514,8 +1514,8 @@ const urlValidator = (val: string): Promise<boolean> => {
   };
   const subscriptionTagsTips = () => {
     Dialog({
-        title: '组合订阅与单条订阅',
-        content: '组合订阅中将包含\n\n1. 含有关联订阅标签的单条订阅\n\n2. 手动选择的单条订阅\n\n举例: 设置了关联订阅标签为 "A, B" 后\n包含标签 "A" 或 "B" 的单条订阅将自动关联到此组合订阅',
+        title: t("editorPage.subConfig.basic.subscriptionTags.tips.title"),
+        content: t("editorPage.subConfig.basic.subscriptionTags.tips.content"),
         popClass: 'auto-dialog',
         textAlign: 'left',
         okText: 'OK',
@@ -1528,7 +1528,12 @@ const urlValidator = (val: string): Promise<boolean> => {
     const template = selectedTemplate.value;
     Dialog({
         title: selectedTemplateLabel.value,
-        content: `类型：${template?.readonly ? "内置模板" : "自定义模板"}\n输出：${template?.target || "mihomo"}\n\n模板会在生成组合订阅时写入代理组、规则提供者和分流规则。`,
+        content: t("editorPage.subConfig.basic.template.tips", {
+          type: template?.readonly
+            ? t("editorPage.subConfig.basic.template.builtIn")
+            : t("editorPage.subConfig.basic.template.custom"),
+          target: template?.target || "mihomo",
+        }),
         popClass: 'auto-dialog',
         textAlign: 'left',
         okText: 'OK',

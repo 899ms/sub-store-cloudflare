@@ -337,7 +337,7 @@ const copyItem = async element => {
   } else {
     await copyFallback(data);
   }
-  Toast.text(`已复制数据 可用于导入`);
+  Toast.text(t("editorPage.subConfig.actions.pasteAction.copied"));
 
 };
 const cancelPaste = async () => {
@@ -370,7 +370,7 @@ const paste = async () => {
   // console.log(`item`, item)
   if (item?.data?.id && item?.data?.type && isSupportedActionType(item.data.type)) {
     if (item?.source !== sourceType) {
-      throw new Error('文件操作与订阅操作不通用')
+      throw new Error(t("editorPage.subConfig.actions.pasteAction.sourceMismatch"))
     }
     const data = [{
       ...item.data,
@@ -379,11 +379,11 @@ const paste = async () => {
     // console.log(data)
     emit('addAction', data);
   } else {
-    throw new Error('数据格式错误')
+    throw new Error(t("editorPage.subConfig.actions.pasteAction.invalidData"))
   }
   } catch (e) {
     console.error(e)
-    Toast.text(`导入失败 ${e.message ?? e}`);
+    Toast.text(t("editorPage.subConfig.actions.pasteAction.importFailed", { e: e.message ?? e }));
   }
 };
 const emit = defineEmits(['addAction', 'deleteAction', 'updateCustomNameModeFlag', 'toggleAction']);

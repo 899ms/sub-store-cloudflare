@@ -8,7 +8,7 @@
       <header class="compare-page-header" :class="{ 'preview-popup-header': !url }">
         <template v-if="url">
           <h1>
-            <span class="title" @click="copyUrl"><font-awesome-icon class="copy" icon="fa-solid fa-clone" @click="copyUrl" /><span class="titleText">点击复制, 在外部资源中使用:</span></span>
+            <span class="title" @click="copyUrl"><font-awesome-icon class="copy" icon="fa-solid fa-clone" @click="copyUrl" /><span class="titleText">{{ t("comparePage.filePreviewCopyLabel") }}</span></span>
             <span class="displayName">
               <a class="url" :href="url" target="_blank">{{ url }}</a>
             </span>
@@ -92,7 +92,7 @@ watchEffect(async () => {
       cmStore.setEditCode('filePreview', `Error: ${
       error.response ? `${error.response.status} ${error.response.statusText}\n\n${data}` : error.message
       }`)
-      showNotify({ title: `加载失败: ${error.message}` })
+      showNotify({ title: t("comparePage.filePreviewLoadFailed", { e: error.message }) })
     }
   }
   if (route.query.name) {
@@ -134,7 +134,7 @@ const copyUrl = async () => {
   } else {
     await copyFallback(url);
   }
-  showNotify({ title: `已复制链接: ${url}` });
+  showNotify({ title: t("comparePage.filePreviewCopied", { url }) });
 };
 </script>
 

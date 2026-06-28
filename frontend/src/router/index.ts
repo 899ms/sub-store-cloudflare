@@ -1,6 +1,7 @@
 import { nextTick } from 'vue';
 import { useEnvApi } from '@/api/env';
 import { useCloudflareApi } from '@/api/app';
+import i18n from '@/locales';
 
 import AppLayout from '@/layout/AppLayout.vue';
 import { useGlobalStore } from '@/store/global';
@@ -18,6 +19,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 // import { SwipeBack } from 'vue-swipe-back'
 
 let globalStore = null;
+const { t: i18n_global } = i18n.global;
 
 const scrollContainers = ['#app', '.app-layout-wrapper', '.page-body'];
 
@@ -233,7 +235,7 @@ router.beforeResolve(async (to, from) => {
           const hasNewVersion = envNow.data.data.hasNewVersion;
           const latestVersion = envNow.data.data.latestVersion;
           if (backend !== storeEnv.backend || version !== storeEnv.version) {
-            Toast.loading('检测到后端变化，更新数据中...', {
+            Toast.loading(i18n_global("globalNotify.refresh.backendChanged"), {
               cover: true,
               id: 'fetchLoading',
             });
