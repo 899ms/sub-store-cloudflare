@@ -449,6 +449,7 @@
       class="editor-tab-content editor-actions-content"
       :class="{ 'editor-tab-fixed-offset': editorTabsEnabled }"
     >
+      <CommonBlock />
       <ActionBlock
         ref="actionBlockRef"
         :checked="actionsChecked"
@@ -541,6 +542,7 @@ import { initStores } from "@/utils/initApp";
 import draggable from "vuedraggable";
 import CompareTable from "@/views/CompareTable.vue";
 import ActionBlock from "@/views/editor/ActionBlock.vue";
+import CommonBlock from "@/views/editor/CommonBlock.vue";
 import ActionRadio from "@/views/editor/components/ActionRadio.vue";
 import FilterSelect from "@/views/editor/components/FilterSelect.vue";
 import HandleDuplicate from "@/views/editor/components/HandleDuplicate.vue";

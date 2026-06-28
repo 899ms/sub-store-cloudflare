@@ -12,6 +12,19 @@ type UiProcess = {
   disabled?: boolean;
 };
 
+const SOURCE_ACTION_TYPES = new Set([
+  'Quick Setting Operator',
+  'Region Filter',
+  'Type Filter',
+  'Regex Filter',
+  'Flag Operator',
+  'Regex Sort Operator',
+  'Regex Delete Operator',
+  'Regex Rename Operator',
+  'Handle Duplicate Operator',
+  'Sort Operator',
+]);
+
 const REGION_PATTERNS: Record<string, string> = {
   HK: '香港|港|Hong\\s*Kong|\\bHK\\b',
   TW: '台湾|台灣|Taiwan|\\bTW\\b',
@@ -42,6 +55,8 @@ const compactMeta = (data: JsonMap, excluded: string[]) => {
   return Object.fromEntries(Object.entries(data).filter(([key, value]) => !excludedSet.has(key) && value !== undefined));
 };
 
+const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
+
 const regexUnion = (items: unknown[]): string => {
   return items
     .map(item => String(item || '').trim())
@@ -54,6 +69,18 @@ const normalizeUiProcess = (process: unknown): JsonMap[] => {
   return Array.isArray(process)
     ? process.filter((item): item is JsonMap => Boolean(item) && typeof item === 'object' && !(item as JsonMap).disabled)
     : [];
+};
+
+const toActionMeta = (process: unknown): UiProcess[] => {
+  return normalizeUiProcess(process)
+    .filter((item) => SOURCE_ACTION_TYPES.has(item.type))
+    .map((item) => cloneJson({
+      id: item.id || newUiId(),
+      type: item.type,
+      args: item.args,
+      customName: item.customName,
+      disabled: item.disabled === true,
+    }));
 };
 
 const toApiFilters = (process: unknown) => {
@@ -259,7 +286,7 @@ const fromApiSource = (source: JsonMap): Sub => {
     source: source.type === 'local' ? 'local' : 'remote',
     url: source.url || '',
     content: source.content || '',
-    process: fromApiFilters(source.filters),
+    process: Array.isArray(meta.actions) ? cloneJson(meta.actions) : fromApiFilters(source.filters),
     enabled: source.enabled !== false,
     tag: normalizeTags(meta.tag),
   } as Sub;
@@ -268,6 +295,7 @@ const fromApiSource = (source: JsonMap): Sub => {
 const toApiSource = (data: JsonMap) => {
   const meta = {
     ...(data.meta && typeof data.meta === 'object' ? data.meta : {}),
+    actions: toActionMeta(data.process),
     ...compactMeta(data, [
       'id',
       'name',
@@ -308,7 +336,7 @@ const fromApiCollection = (collection: JsonMap): Collection => {
     displayName: collection.name,
     'display-name': collection.name,
     subscriptions: Array.isArray(collection.sourceIds) ? collection.sourceIds : [],
-    process: fromApiFilters(collection.filters),
+    process: Array.isArray(meta.actions) ? cloneJson(meta.actions) : fromApiFilters(collection.filters),
     templateId: collection.templateId || 'acl4ssr-mihomo',
     ignoreFailedRemoteSub: collection.ignoreFailed === false ? 'disabled' : 'quiet',
     enabled: collection.enabled !== false,
@@ -319,6 +347,7 @@ const fromApiCollection = (collection: JsonMap): Collection => {
 const toApiCollection = (data: JsonMap) => {
   const meta = {
     ...(data.meta && typeof data.meta === 'object' ? data.meta : {}),
+    actions: toActionMeta(data.process),
     ...compactMeta(data, [
       'id',
       'name',
