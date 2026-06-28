@@ -10,7 +10,6 @@ export const useGlobalStore = defineStore('globalStore', {
       isLoading: true,
       isFlowFetching: true,
       fetchResult: false,
-      bottomSafeArea: 0,
       isDefaultIcon: localStorage.getItem('isDefaultIcon') === '1',
       isDarkMode: false,
       env: {},
@@ -35,9 +34,6 @@ export const useGlobalStore = defineStore('globalStore', {
         localStorage.removeItem('subProgressStyle');
       }
       this.subProgressStyle = style;
-    },
-    setBottomSafeArea(height: number) {
-      this.bottomSafeArea = height;
     },
     setLoading(isLoading: boolean) {
       this.isLoading = isLoading;

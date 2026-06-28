@@ -28,31 +28,10 @@ const formatNotifyHtml = (value: string) => {
   return escapeHtml(value).replace(/\n/g, "<br/>");
 };
 
-const isPWA = () => {
-  let h = 0 as number;
-  if (
-    window.matchMedia("(display-mode: standalone)").matches &&
-    !/Android/.test(navigator.userAgent)
-  ) {
-    h = 60;
-    if (window.innerHeight < 750 || /iPad/.test(navigator.userAgent)) {
-      h = 18;
-    }
-  } else {
-    h = 0;
-  }
-  return h;
-};
-
 export const useAppNotifyStore = defineStore("appNotify", {
   state: (): AppNotifyStoreState => {
     return {
-      isVisible: false,
-      title: "",
-      content: "",
-      type: "primary",
-      duration: 800,
-      navBartop: isPWA(),
+      navBartop: 0,
     };
   },
   getters: {},
@@ -63,14 +42,6 @@ export const useAppNotifyStore = defineStore("appNotify", {
       const fallbackTitle = notifyType === "danger" ? "操作失败" : "通知";
       const safeTitle = formatNotifyText(title) || fallbackTitle;
       const safeContent = formatNotifyText(content);
-      // this.title = title;
-      // this.content = content || '';
-      // this.type = type || 'primary';
-      // this.duration = duration || 2500;
-      // this.isVisible = true;
-      // setTimeout(() => {
-      //   this.setVisible(false);
-      // }, this.duration); // 防止重复通知 持续时间过长
       let html = `<strong>${formatNotifyHtml(safeTitle)}</strong>`;
       if (safeContent) {
         html += `<br/>${formatNotifyHtml(safeContent)}`;
@@ -95,11 +66,7 @@ export const useAppNotifyStore = defineStore("appNotify", {
         closeOnClick: false,
         autoClose: duration || 2500,
         style: { zIndex: 65535, paddingTop: this.navBartop + "px" },
-        // PWA 时添加通知顶部边距
       });
-    },
-    setVisible(isVisible: boolean) {
-      this.isVisible = isVisible;
     },
   },
 });

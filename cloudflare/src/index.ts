@@ -38,6 +38,8 @@ app.options("*", (c) => {
 
 app.route("/api", apiRoutes);
 app.route("/", downloadRoutes);
+// Keep these upgrade cleanup endpoints so older browser registrations
+// unregister themselves after moving to the current frontend.
 app.get("/sw.js", (c) =>
   c.text("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',(event)=>event.waitUntil(self.registration.unregister()));", 200, {
     "content-type": "application/javascript; charset=utf-8",

@@ -3,7 +3,6 @@ interface GlobalStoreState {
   isDefaultIcon: boolean;
   isFlowFetching: boolean;
   fetchResult: boolean;
-  bottomSafeArea: number;
   isDarkMode: boolean;
   env: ENV;
   isDockerDeployment: boolean;

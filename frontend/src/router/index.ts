@@ -104,7 +104,7 @@ const router = createRouter({
         },
         {
           path: '/preview',
-          component: () => import('@/views/FilePreview.vue'),
+          component: () => import('@/views/Preview.vue'),
           meta: {
             title: 'preview',
             needTabBar: false,

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { denyPatterns, skippedCurrentFiles } from "./open-source-denylist.mjs";
 
 const trackedFiles = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], { encoding: "utf8" })
@@ -20,11 +20,26 @@ const removedFeaturePaths = [
   [/^cloudflare\/src\/routes\/(files|share|sync|archive|logs|artifacts|scripts)\.ts$/, "removed worker feature route"],
   [/^cloudflare\/src\/lib\/(files|share|sync|archive|logs|artifacts|scripts)\.ts$/, "removed worker feature library"],
 ];
+const removedStaticAssetPaths = [
+  [/^frontend\/public\/manifests\.json$/, "removed PWA manifest"],
+  [/^frontend\/public\/(?:48x48|72x72|96x96|144x144|168x168|192x192|256x256|512x512|apple-touch-icon)\.png$/, "removed PWA icon asset"],
+  [/^frontend\/src\/components\/GlobalNotify\.vue$/, "removed unused notify component"],
+];
 const frontendDebugPatterns = [
   [/\bconsole\.log\s*\(/g, "frontend console.log debug output"],
   [/\bdebugger\b/g, "frontend debugger statement"],
 ];
 const removedFrontendFeaturePatterns = [
+  [/\bSplashScreen\b/g, "removed splash screen entry"],
+  [/\bGlobalNotify\b/g, "removed unused notify component"],
+  [/\bpwa_top_padding\b/g, "removed PWA top padding UI"],
+  [/\bnavigator\.standalone\b/g, "removed PWA standalone detection"],
+  [/\bsetBottomSafeArea\b/g, "removed JS safe-area state"],
+  [/\bbottomSafeArea\b/g, "removed JS safe-area state"],
+  [/\bProgressive Web App\b/g, "removed PWA marketing text"],
+  [/\bmobile-web-app-capable\b/g, "removed PWA meta tag"],
+  [/\bapple-mobile-web-app-capable\b/g, "removed PWA meta tag"],
+  [/\brel=["']manifest["']/g, "removed PWA manifest link"],
   [/\bincludeUnsupportedProxy\b/g, "removed preview option"],
   [/\bprettyYaml\b/g, "removed preview option"],
   [/\bhasNewVersion\b/g, "removed upstream release reminder"],
@@ -76,6 +91,11 @@ const localeForbiddenPatterns = [
 
 for (const file of trackedFiles) {
   for (const [pattern, label] of removedFeaturePaths) {
+    if (pattern.test(file)) {
+      findings.push(`${file}: ${label}`);
+    }
+  }
+  for (const [pattern, label] of removedStaticAssetPaths) {
     if (pattern.test(file)) {
       findings.push(`${file}: ${label}`);
     }
@@ -138,6 +158,8 @@ for (const file of trackedFiles) {
   }
 }
 
+findUnusedIconAssets();
+
 if (findings.length > 0) {
   console.error(findings.join("\n"));
   process.exit(1);
@@ -172,4 +194,39 @@ function stripSimpleComments(line, inBlockComment) {
   if (lineCommentIndex !== -1) text = text.slice(0, lineCommentIndex);
 
   return { text, inBlockComment: blockCommentOpen };
+}
+
+function findUnusedIconAssets() {
+  const iconDir = "frontend/src/assets/icons";
+  if (!existsSync(iconDir)) return;
+
+  const sourceFiles = trackedFiles
+    .filter((file) => file.startsWith("frontend/src/"))
+    .filter((file) => !file.startsWith(`${iconDir}/`));
+  const sourceText = sourceFiles
+    .map((file) => {
+      try {
+        return readFileSync(file, "utf8");
+      } catch {
+        return "";
+      }
+    })
+    .join("\n");
+  const spriteIconNames = [...sourceText.matchAll(/<svg-icon[^>]*\bname=["']([^"']+)["']/g)]
+    .map((match) => match[1]);
+  const usedIconNames = new Set(spriteIconNames);
+
+  for (const match of sourceText.matchAll(/@\/assets\/icons\/([^"']+)/g)) {
+    usedIconNames.add(match[1].replace(/\.[^.]+$/, ""));
+  }
+
+  for (const fileName of readdirSync(iconDir).sort()) {
+    const iconPath = `${iconDir}/${fileName}`;
+    const iconName = fileName.replace(/\.[^.]+$/, "");
+    const directlyImported = sourceText.includes(`@/assets/icons/${fileName}`);
+    const spriteUsed = usedIconNames.has(iconName);
+    if (!directlyImported && !spriteUsed) {
+      findings.push(`${iconPath}: unused frontend icon asset`);
+    }
+  }
 }

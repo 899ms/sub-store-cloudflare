@@ -18,9 +18,7 @@ export default {
       flowFailed: "刷新 {name} 失败！",
       failed: "数据刷新失败\n",
       loading: "刷新数据中...",
-      backendChanged: "检测到后端变化，更新数据中...",
-      rePwa: "重置 PWA 缓存成功，即将刷新页面...",
-      rePwaing: "重置 PWA 缓存中..."
+      backendChanged: "检测到后端变化，更新数据中..."
     },
     request: {
       failedWithStatus: "请求失败: {status} {statusText}",
@@ -719,9 +717,9 @@ export default {
   comparePage: {
     title: "即时预览",
     loading: "生成节点对比中...",
-    filePreviewCopyLabel: "点击复制，在外部资源中使用:",
-    filePreviewLoadFailed: "加载失败: {e}",
-    filePreviewCopied: "已复制链接: {url}",
+    subscriptionPreviewCopyLabel: "点击复制订阅链接:",
+    subscriptionPreviewLoadFailed: "加载失败: {e}",
+    subscriptionPreviewCopied: "已复制链接: {url}",
     remain: {
       title: "保留的节点",
       beforeIndicator: "操作前",

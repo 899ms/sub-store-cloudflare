@@ -15,8 +15,6 @@
 
 <script lang="ts" setup>
   import { useWideScreenNarrowMode } from '@/hooks/useWideScreenNarrowMode';
-  import { useGlobalStore } from '@/store/global';
-  import { storeToRefs } from 'pinia';
   import { ref } from 'vue';
   import { onBeforeRouteUpdate, useRoute } from 'vue-router';
 
@@ -25,15 +23,9 @@
   const activeTab = ref(routeList.indexOf(route.path));
   const { isWideScreenNarrowModeActive } = useWideScreenNarrowMode();
 
-
-
-  const globalStore = useGlobalStore();
-  const {
-    bottomSafeArea
-  } = storeToRefs(globalStore);
   const style = {
-    height: `${bottomSafeArea.value + 12 + 44}px`,
-    paddingBottom: bottomSafeArea.value + 'px',
+    height: 'calc(56px + env(safe-area-inset-bottom))',
+    paddingBottom: 'env(safe-area-inset-bottom)',
   };
   onBeforeRouteUpdate((to, from, next) => {
     activeTab.value = routeList.indexOf(to.path);

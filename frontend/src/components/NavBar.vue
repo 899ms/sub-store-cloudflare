@@ -1,12 +1,8 @@
 <template>
-  <!-- isPWA 时候顶部边距 -->
-  <div v-if="isPWA" class="pwa_top_padding" />
   <div
     class="nav-bar-wrapper"
   >
     <nav>
-      <!-- &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; {{ navBarHeight }} {{ wh }}    {{ topHeight }}-->
-
       <nut-navbar
         @on-click-back="back"
         :title="currentTitle"
@@ -124,15 +120,12 @@ const systemStore = useSystemStore();
 const settingsStore = useSettingsStore();
 const listSearchStore = useListSearchStore();
 const { appearanceSetting } = storeToRefs(settingsStore);
-// 从systemStore获取状态
-const { isPWA, isLandscape, isSmall } = storeToRefs(systemStore);
 
 onMounted(() => {
   systemStore.initSystemState();
 });
 
-// 使用systemStore中的计算属性
-const { navBarHeight, navBartop, navActionOffset, pwaTopPadding: Pwa_top } = storeToRefs(systemStore);
+const { navBarHeight, navBartop, navActionOffset } = storeToRefs(systemStore);
 const searchInputRef = ref<HTMLInputElement | null>(null);
 
 const isNeedBack = computed(() => {
@@ -254,31 +247,13 @@ const refresh = async () => {
   } else if (["/subs"].includes(route.path)) {
     initStores(true, true, true);
   } else {
-    showNotify({ title: i18n_global("globalNotify.refresh.rePwaing"), type: "primary" });
-    if ("serviceWorker" in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      for (let registration of registrations) {
-        await registration.unregister();
-      }
-    }
-    if ("caches" in window) {
-      const cacheNames = await caches.keys();
-      for (let cacheName of cacheNames) {
-        await caches.delete(cacheName);
-      }
-    }
-    showNotify({ title: i18n_global("globalNotify.refresh.rePwa"), type: "primary" });
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
+    showNotify({ title: i18n_global("globalNotify.refresh.loading"), type: "primary" });
+    await initStores(true, true, true);
   }
 };
 </script>
 
 <style lang="scss">
-.pwa_top_padding {
-  padding-top: v-bind(Pwa_top);
-}
 .nav-bar-wrapper {
   top: 0;
   height: v-bind(navBarHeight);

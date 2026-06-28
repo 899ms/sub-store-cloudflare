@@ -18,9 +18,7 @@ export default {
       flowFailed: "Refresh of {name} failed!",
       failed: "Refresh Failed\n",
       loading: "Refreshing Data...",
-      backendChanged: "Backend changed. Refreshing data...",
-      rePwaing: "Resetting PWA cache...",
-      rePwa: "PWA cache reset successfully. The page will refresh soon..."
+      backendChanged: "Backend changed. Refreshing data..."
     },
     request: {
       failedWithStatus: "Request failed: {status} {statusText}",
@@ -719,9 +717,9 @@ export default {
   comparePage: {
     title: "Instant Preview",
     loading: "Generating node comparison...",
-    filePreviewCopyLabel: "Click to copy and use as an external resource:",
-    filePreviewLoadFailed: "Load failed: {e}",
-    filePreviewCopied: "Copied link: {url}",
+    subscriptionPreviewCopyLabel: "Click to copy the subscription link:",
+    subscriptionPreviewLoadFailed: "Load failed: {e}",
+    subscriptionPreviewCopied: "Copied link: {url}",
     remain: {
       title: "remain nodes",
       beforeIndicator: "before",

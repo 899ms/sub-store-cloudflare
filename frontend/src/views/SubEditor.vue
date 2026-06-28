@@ -613,13 +613,7 @@ const settingsStore = useSettingsStore();
 const { appearanceSetting } = storeToRefs(settingsStore);
 const { navBarHeight } = storeToRefs(systemStore);
 
-const {
-    bottomSafeArea,
-    // isEditorCommon,
-    // isDefaultIcon, 
-    // isIconColor 
-  } = storeToRefs(globalStore);
-const padding = bottomSafeArea.value + "px";
+const padding = "env(safe-area-inset-bottom)";
 const routeConfigName = computed(() => route.params.id as string);
 const isEditMode = computed(() => routeConfigName.value !== "UNTITLED");
 const editorGroupingMode = computed<EditorGroupingMode>(() => appearanceSetting.value.editorGroupingMode || "edit-only");

@@ -13,7 +13,7 @@
         pop-class="add-sub-popup"
         position="bottom"
         :style="{
-          height: `${bottomSafeArea + 200}px`,
+          height: 'calc(200px + env(safe-area-inset-bottom))',
           padding: '20px 12px 0 12px',
         }"
         close-icon="close-little"
@@ -66,17 +66,16 @@
           :boundary="{
             top: 56 + 8,
             left: 16,
-            bottom: bottomSafeArea + 48 + 12 + 8,
+            bottom: 48 + 12 + 8,
             right: 16,
           }"
           :style="{
             cursor: 'pointer',
             left: '15px',
-            bottom: `${
-              bottomSafeArea +
-              48 + 36 + 
+            bottom: `calc(${
+              48 + 36 +
               (!isMobile() ? (appearanceSetting.isSimpleMode ? 44 : 48) : 0)
-            }px`,
+            }px + env(safe-area-inset-bottom))`,
           }"
         >
           <!-- 刷新 -->
@@ -281,7 +280,6 @@ const {
   // isSimpleMode,
   isLoading,
   fetchResult,
-  bottomSafeArea,
   // showFloatingRefreshButton,
 } = storeToRefs(globalStore);
 const { navBarHeight } = storeToRefs(systemStore);

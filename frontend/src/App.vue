@@ -1,5 +1,4 @@
 <template>
-  <!-- <GlobalNotify /> -->
   <NavBar />
   <SideBar v-show="shouldShowSideBar" />
   <main class="page-body">
@@ -8,7 +7,6 @@
 </template>
 
 <script setup lang="ts">
-// import GlobalNotify from '@/components/GlobalNotify.vue';
 import SideBar from "@/components/SideBar.vue";
 import NavBar from "@/components/NavBar.vue";
 import { useWideScreenNarrowMode } from "@/hooks/useWideScreenNarrowMode";
@@ -28,37 +26,12 @@ const { subs, flows } = storeToRefs(subsStore);
 
 const allLength = ref(null);
 
-// 处于 pwa 且屏幕底部有小白条时将底部安全距离写入 global store
-type NavigatorExtend = Navigator & {
-  standalone?: boolean;
-};
-const navigator: NavigatorExtend = window.navigator;
-
-// 判断是否为非全面屏设备
-function isLegacyDevices() {
-  const screenWidth = window.screen.width;
-  const screenHeight = window.screen.height;
-  if (
-    (screenWidth === 375 && screenHeight === 667) ||
-    (screenWidth === 414 && screenHeight === 736)
-  ) {
-    return true;
-  }
-  return false;
-}
-
-globalStore.setBottomSafeArea(
-  navigator.standalone && !isLegacyDevices() ? 18 : 0
-);
-
-// 初始化颜色主题
 useThemes();
 
 onMounted(() => {
   initStores(true, true, false);
 });
 
-// 设置流量刷新状态
 watchEffect(() => {
   const flowKeys = getFlowsUrlList(subs.value).map(([url]) => url);
   allLength.value = flowKeys.length;

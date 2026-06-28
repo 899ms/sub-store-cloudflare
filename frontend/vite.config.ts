@@ -79,7 +79,6 @@ const viteConfig = defineConfig((mode: ConfigEnv) => {
       minify: "terser",
       input: {
         main: "src/main.ts",
-        SplashScreen: "src/SplashScreen.vue",
       },
       rollupOptions: {
         output: {

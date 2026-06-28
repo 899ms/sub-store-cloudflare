@@ -19,7 +19,7 @@ import { syncAdminTokenFromUrl } from '@/utils/adminToken';
 
 import App from './App.vue';
 
-export function initializeApp() {
+function initializeApp() {
   syncAdminTokenFromUrl();
 
   // 创建一个回调函数来处理变化
@@ -49,3 +49,5 @@ export function initializeApp() {
   app.component('svg-icon', SvgIcon);
   app.mount('#app');
 }
+
+initializeApp();

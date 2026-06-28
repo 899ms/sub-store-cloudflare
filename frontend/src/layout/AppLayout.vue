@@ -8,17 +8,13 @@
 <script lang="ts" setup>
   import TabBar from '@/components/TabBar.vue';
   import { computed } from 'vue';
-  import { storeToRefs } from 'pinia';
   import { useWideScreenNarrowMode } from '@/hooks/useWideScreenNarrowMode';
-  import { useGlobalStore } from '@/store/global';
 
-  const globalStore = useGlobalStore();
-  const { bottomSafeArea } = storeToRefs(globalStore);
   const { shouldShowTabBar } = useWideScreenNarrowMode();
 
   const height = computed(() => {
     if (shouldShowTabBar.value) {
-      return 44 + 12 + bottomSafeArea.value + 'px';
+      return 'calc(56px + env(safe-area-inset-bottom))';
     } else {
       return '16px';
     }
