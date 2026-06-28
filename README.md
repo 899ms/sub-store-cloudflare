@@ -22,7 +22,9 @@ English: [README.en.md](README.en.md)
 - 输出 Mihomo、Stash、Surge、Surge Mac、Surfboard、Loon、Egern、Shadowrocket、Quantumult X、sing-box、v2ray、URI 和 JSON。
 - 使用 Worker Secrets 保护管理端和下载链接。
 
-这个项目聚焦“云端聚合 + 云端节点处理 + 云端规则模板 + 最终订阅输出”。它保留日常维护订阅需要的核心链路：格式转换、订阅格式化、多订阅合并、常见客户端输出、规则模板、预览校验、流量信息和导入导出。不包含 Gist 同步、文件管理、分享、归档、脚本运行、日志面板、队列任务等额外系统。
+这个项目聚焦“云端聚合 + 云端节点处理 + 云端规则模板 + 最终订阅输出”。核心循环是：添加订阅源，处理节点，组合订阅，套用规则模板，预览校验，复制下载链接。它不是完整 Sub-Store 的逐项复刻，也不是 Cloudflare 功能展示项目。
+
+详细边界见 [docs/product-scope.md](docs/product-scope.md)。不属于核心循环的文件管理、Gist 同步、分享、归档、脚本运行、日志面板、队列任务等系统不会默认加入。
 
 ## 致谢
 

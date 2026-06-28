@@ -9,6 +9,17 @@ const trackedFiles = execFileSync("git", ["ls-files", "--cached", "--others", "-
   .filter((file) => existsSync(file));
 
 const findings = [];
+const removedFeaturePaths = [
+  [/^frontend\/src\/api\/(archive|artifacts|files|logs|share)\//, "removed frontend feature API"],
+  [/^frontend\/src\/components\/(Archive|Artifact|Artifacts|File|Logs|MagicPath|Share)/, "removed frontend feature component"],
+  [/^frontend\/src\/store\/(archive|artifacts|logsOverlay)\.ts$/, "removed frontend feature store"],
+  [/^frontend\/src\/utils\/(archive|artifactIcon|fileType|githubProxy|pwa|share|shareTags|semver)\.ts$/, "removed frontend feature utility"],
+  [/^frontend\/src\/views\/(File|FileEditor|Logs|Sync|SyncEditor)\.vue$/, "removed frontend feature view"],
+  [/^frontend\/src\/views\/(archive|share|settings)\//, "removed frontend feature view"],
+  [/^frontend\/src\/views\/editor\/components\/(AddProxiesFromSubscription|Script|MonacoEditor)\.vue$/, "removed frontend feature editor component"],
+  [/^cloudflare\/src\/routes\/(files|share|sync|archive|logs|artifacts|scripts)\.ts$/, "removed worker feature route"],
+  [/^cloudflare\/src\/lib\/(files|share|sync|archive|logs|artifacts|scripts)\.ts$/, "removed worker feature library"],
+];
 const frontendDebugPatterns = [
   [/\bconsole\.log\s*\(/g, "frontend console.log debug output"],
   [/\bdebugger\b/g, "frontend debugger statement"],
@@ -64,6 +75,12 @@ const localeForbiddenPatterns = [
 ];
 
 for (const file of trackedFiles) {
+  for (const [pattern, label] of removedFeaturePaths) {
+    if (pattern.test(file)) {
+      findings.push(`${file}: ${label}`);
+    }
+  }
+
   let text;
   try {
     text = readFileSync(file, "utf8");

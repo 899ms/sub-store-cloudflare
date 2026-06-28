@@ -1,6 +1,7 @@
 # 文档索引
 
 - [architecture.md](architecture.md)：Worker + D1 的简化架构、数据模型和输出链路。
+- [product-scope.md](product-scope.md)：项目保留什么、不保留什么，以及如何判断新功能是否属于核心范围。
 - [deployment.md](deployment.md)：从 D1 创建到 Worker 部署的步骤。
 - [ai-agent-install.md](ai-agent-install.md)：让 Codex、Claude Code 等 AI Agent 引导部署和导入配置。
 - [../AGENTS.md](../AGENTS.md)：AI Agent 的固定安装协议。

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 const SUPPORTED_TARGETS = ["mihomo", "stash", "surge", "surge-mac", "surfboard", "loon", "egern", "shadowrocket", "qx", "sing-box", "v2ray", "uri", "json"];
+const RETAINED_FRONTEND_ROUTES = new Set(["/", "/subs", "/my", "/preview", "/edit/:editType(subs|collections)/:id", "/404", "/:pathMatch(.*)"]);
 
 const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "cloudflare/src"], { encoding: "utf8" })
   .split("\0")
@@ -41,6 +42,7 @@ if (findings.length > 0) {
 }
 
 assertTargetCoverage();
+assertFrontendRoutes();
 
 console.log("Worker contract scan passed.");
 
@@ -90,4 +92,20 @@ function downloadTargetsSchema() {
 
 function escapeRegExp(input) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function assertFrontendRoutes() {
+  const routerPath = "frontend/src/router/index.ts";
+  if (!existsSync(routerPath)) return;
+  const text = readFileSync(routerPath, "utf8");
+  const routePathPattern = /\bpath:\s*["']([^"']+)["']/g;
+  const routes = [...text.matchAll(routePathPattern)].map((match) => match[1]);
+  const routeFindings = routes
+    .filter((route) => !RETAINED_FRONTEND_ROUTES.has(route))
+    .map((route) => `${routerPath}: route ${route} is outside the retained product scope`);
+
+  if (routeFindings.length > 0) {
+    console.error(routeFindings.join("\n"));
+    process.exit(1);
+  }
 }

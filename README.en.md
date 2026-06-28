@@ -17,7 +17,9 @@ Chinese is the primary documentation language for this repository. See [README.m
 - Uses Worker Secrets for admin and download tokens.
 
 The deployment model is intentionally small: Workers Static Assets + Worker API + D1 + Worker Secrets.
-It keeps the core Sub-Store workflow: format conversion, subscription formatting, multi-source collections, common client outputs, routing templates, preview/validation, usage info, and backup/restore.
+The core loop is: add sources, process nodes, combine sources, apply a routing template, preview the result, and copy the final download URL. This repository is not a full feature-by-feature clone of Sub-Store and not a Cloudflare platform showcase.
+
+See [docs/product-scope.md](docs/product-scope.md) for the product boundary.
 
 ## Architecture
 

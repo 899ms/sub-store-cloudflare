@@ -14,6 +14,8 @@ Deploy Sub-Store Cloudflare into the user's Cloudflare account, import their sub
 - Preserve the core loop: manage sources, combine sources into collections, apply practical node filters, choose routing templates, preview output, and publish subscription URLs.
 - Do not add upstream-only systems such as file hosting, sync providers, sharing, archive/history, script runtime, log panels, queues, cron jobs, or artifact management unless the user explicitly expands the product boundary.
 - Do not expose UI controls for backend behavior that this Worker does not actually implement. A smaller real feature is preferred over a larger fake-compatible UI.
+- When copying from upstream, copy only code that directly supports the retained routes and data model. Do not keep placeholder routes, compatibility shells, or disabled navigation for removed systems.
+- Use `docs/product-scope.md` as the default decision rule for new features.
 - The public data model is `sources`, `collections`, `templates`, `filters`, and `sourceIds`.
 - The filter DSL accepted by Worker config is:
   - `{ "type": "include", "field": "name", "pattern": "..." }`

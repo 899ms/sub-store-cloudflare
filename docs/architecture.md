@@ -2,6 +2,8 @@
 
 Sub-Store Cloudflare 是一个单 Worker 应用：管理界面由 Worker Static Assets 托管，配置 API 和订阅输出由同一个 Worker 处理，结构化配置保存在 D1。
 
+它的产品边界是云端订阅配置器：订阅源、节点处理、组合订阅、规则模板、预览校验和最终下载链接。更完整的范围说明见 [product-scope.md](product-scope.md)。
+
 ## 运行边界
 
 ```text
@@ -78,7 +80,7 @@ Cloudflare Worker
 - 订阅流量信息、配置备份与恢复。
 - Mihomo、Stash、Surge、Surge Mac、Surfboard、Loon、Egern、Shadowrocket、Quantumult X、sing-box、v2ray、URI、JSON 输出。
 
-脚本运行、文件托管、Gist 同步、分享、归档、定时任务和日志系统不在核心路径里。
+脚本运行、文件托管、Gist 同步、分享、归档、定时任务和日志系统不在核心路径里，也不会保留空壳 UI 或兼容接口。
 
 ## Filters
 
@@ -136,4 +138,4 @@ Cloudflare Worker
 
 ## 上游关系
 
-完整订阅管理系统请参考 [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store)。本项目保留核心管理体验和订阅生成链路，部署形态收敛到 Cloudflare Workers。
+完整订阅管理系统请参考 [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store)。本项目借鉴原版的核心订阅编辑体验和订阅生成链路，部署形态收敛到 Cloudflare Workers。原版的文件、同步、分享、归档、脚本和日志等平台能力不属于默认范围。

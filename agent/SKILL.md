@@ -7,7 +7,8 @@ Use this skill when a user wants to deploy, configure, import, or verify this re
 1. Read `AGENTS.md`.
 2. Read `config/agent-setup.schema.json`.
 3. Read `config/rule-presets.json`.
-4. Read `docs/deployment.md`.
+4. Read `docs/product-scope.md`.
+5. Read `docs/deployment.md`.
 
 ## User-Facing Start Prompt
 
@@ -24,6 +25,8 @@ Follow AGENTS.md and agent/SKILL.md in this repository. Deploy this Sub-Store Cl
 - Use D1 for sources, collections, templates, and filters.
 - Do not add R2/KV/Queues/Durable Objects unless the codebase is changed for that storage model.
 - Do not use browser automation for Cloudflare setup unless the user explicitly asks for a visual walkthrough.
+- Treat upstream Sub-Store as a reference for retained source, collection, filter, template, preview, and download workflows only.
+- Do not add files, sync, share, archive, script runtime, logs, queues, cron, or artifact features during installation or cleanup work.
 
 ## Execution Checklist
 
