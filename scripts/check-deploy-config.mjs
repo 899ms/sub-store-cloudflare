@@ -15,13 +15,14 @@ if (!existsSync(configPath)) {
 
 const config = parseJsonc(readFileSync(configPath, "utf8"), configPath);
 const assets = config.assets;
+const expectedAssetDirectory = configPath === "wrangler.jsonc" ? "frontend/dist" : "../frontend/dist";
 const findings = [];
 
 if (!assets || typeof assets !== "object") {
   findings.push("assets config is missing");
 } else {
-  if (assets.directory !== "../frontend/dist") {
-    findings.push('assets.directory must be "../frontend/dist"');
+  if (assets.directory !== expectedAssetDirectory) {
+    findings.push(`assets.directory must be "${expectedAssetDirectory}"`);
   }
   if (assets.binding !== "ASSETS") {
     findings.push('assets.binding must be "ASSETS"');
@@ -40,7 +41,7 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log("Deployment config scan passed.");
+console.log(`${configPath}: deployment config scan passed.`);
 
 function parseJsonc(text, file) {
   try {

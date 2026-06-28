@@ -1,8 +1,54 @@
 # Sub-Store Cloudflare
 
-一个部署在 Cloudflare Workers 上的订阅聚合与规则配置工具。它把订阅源、节点过滤、组合订阅和分流规则模板放在云端，客户端只需要订阅最终生成的链接。
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/sub-store-cloudflare)
+
+一个部署在 Cloudflare Workers 上的订阅聚合与规则配置工具。它把订阅源、节点处理、组合订阅和分流规则模板放在云端，客户端只需要订阅最终生成的链接。
 
 English: [README.en.md](README.en.md)
+
+## 最快部署
+
+### 方式一：Cloudflare 官方一键部署
+
+点上面的 **Deploy to Cloudflare** 按钮。Cloudflare 会把仓库复制到你的 GitHub/GitLab 账号，自动创建 Worker、D1 数据库并部署。
+
+部署页会要求填写两个 secret：
+
+- `SUB_STORE_ADMIN_TOKEN`：管理界面和 `/api/*` token。
+- `SUB_STORE_PUBLIC_DOWNLOAD_TOKEN`：订阅下载链接 token。
+
+可以用下面的命令生成随机 token：
+
+```bash
+openssl rand -base64 32
+```
+
+部署完成后打开：
+
+```text
+https://<your-worker>.<your-subdomain>.workers.dev/?token=<admin-token>
+```
+
+然后在网页里添加订阅源、组合订阅和规则模板。这是最适合普通开源用户的路径。
+
+### 方式二：Agent / CLI 一键安装
+
+如果你希望 Codex、Claude Code 或本地命令直接帮你导入订阅源、创建组合订阅并返回可复制链接，用：
+
+```bash
+pnpm run install:cloudflare
+```
+
+这个命令会检查 Cloudflare 登录、创建或复用 D1、生成本地部署配置、写入 Worker secrets、迁移 D1、部署 Worker、导入 `config/agent-setup.local.json`，最后验证并打印管理链接和下载链接。
+
+如果还没有 Cloudflare 账号或没有登录 Wrangler，它会停下来并提示：
+
+```bash
+pnpm --dir cloudflare exec wrangler login
+pnpm run install:cloudflare
+```
+
+让 AI Agent 处理时，可以直接复制 [agent/install.prompt.md](agent/install.prompt.md)。
 
 ## 适合谁
 
@@ -24,11 +70,7 @@ English: [README.en.md](README.en.md)
 
 这个项目聚焦“云端聚合 + 云端节点处理 + 云端规则模板 + 最终订阅输出”。核心循环是：添加订阅源，处理节点，组合订阅，套用规则模板，预览校验，复制下载链接。它不是完整 Sub-Store 的逐项复刻，也不是 Cloudflare 功能展示项目。
 
-详细边界见 [docs/product-scope.md](docs/product-scope.md)。不属于核心循环的文件管理、Gist 同步、分享、归档、脚本运行、日志面板、队列任务等系统不会默认加入。
-
-## 致谢
-
-本项目的前端交互和订阅管理思路参考并致敬 [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store)。原版 Sub-Store 是功能完整的订阅管理项目，覆盖了更广的运行环境和客户端生态；这个仓库选择更小的 Cloudflare-native 形态，方便直接部署和二次修改。
+详细边界见 [docs/product-scope.md](docs/product-scope.md)。
 
 ## 架构
 
@@ -45,47 +87,10 @@ Cloudflare Worker
 
 只需要 Cloudflare Workers + D1。KV、R2、Durable Objects、Queue、Cron 都不是核心路径。
 
-目录：
-
-```text
-.
-├── frontend/      # Vue 管理界面，构建后由 Worker 静态资源托管
-├── cloudflare/    # Worker、D1 schema、订阅生成逻辑
-├── config/        # 初始配置示例，local 文件用于导入自己的订阅源
-├── docs/          # 架构和部署说明
-└── scripts/       # 开源检查和维护脚本
-```
-
-## 快速开始
-
-需要：
-
-- Node.js 20+
-- pnpm
-- Cloudflare 账号
-
-安装依赖：
+## 本地开发
 
 ```bash
 pnpm run setup
-```
-
-创建 D1 数据库：
-
-```bash
-pnpm --dir cloudflare exec wrangler d1 create sub-store-cloudflare
-```
-
-用返回的 `database_id` 生成本地部署配置：
-
-```bash
-cp config/agent-setup.example.json config/agent-setup.local.json
-pnpm run deploy:config -- config/agent-setup.local.json cloudflare/wrangler.deploy.local.jsonc --database-id <database-id>
-```
-
-本地开发：
-
-```bash
 cp cloudflare/.dev.vars.example cloudflare/.dev.vars
 pnpm run build:frontend
 pnpm run dev
@@ -94,69 +99,33 @@ pnpm run dev
 访问：
 
 ```text
-http://localhost:8787/?token=<admin-token>
+http://localhost:8787/?token=dev-admin-token
 ```
 
-## 用 AI Agent 部署
+## 手动部署
 
-如果你希望用 Codex、Claude Code 之类的 Agent 一路完成部署，可以让 Agent 读取 [AGENTS.md](AGENTS.md) 和 [agent/SKILL.md](agent/SKILL.md)，或者直接复制 [agent/install.prompt.md](agent/install.prompt.md) 里的提示词。
-
-最短版本：
-
-```text
-Follow AGENTS.md and agent/SKILL.md in this repository. Help me deploy this Sub-Store Cloudflare project to my Cloudflare account. Ask me only for missing inputs, prepare my subscription sources and collections, generate the D1 seed SQL, deploy the Worker, import the seed, and give me the final admin URL plus collection download URLs.
-```
-
-Agent 会把订阅源和本地节点写入 `config/agent-setup.local.json`，再生成 `cloudflare/agent.seed.local.sql` 导入 D1。
-
-规则模板和过滤器预设在 [config/rule-presets.json](config/rule-presets.json)，配置结构见 [config/agent-setup.schema.json](config/agent-setup.schema.json)。详细说明见 [docs/ai-agent-install.md](docs/ai-agent-install.md)。
-
-## 部署
-
-设置生产 Secrets：
+如果不用按钮，也不用 agent installer：
 
 ```bash
+pnpm run setup
+pnpm --dir cloudflare exec wrangler login
+pnpm --dir cloudflare exec wrangler d1 create sub-store-cloudflare
+cp config/agent-setup.example.json config/agent-setup.local.json
+pnpm run deploy:config -- config/agent-setup.local.json cloudflare/wrangler.deploy.local.jsonc --database-id <database-id>
 pnpm --dir cloudflare exec wrangler secret put SUB_STORE_ADMIN_TOKEN
 pnpm --dir cloudflare exec wrangler secret put SUB_STORE_PUBLIC_DOWNLOAD_TOKEN
-```
-
-应用 D1 迁移：
-
-```bash
 pnpm run migrate:remote
+pnpm run deploy:local
 ```
 
-部署：
+详细说明见 [docs/deployment.md](docs/deployment.md)。Agent 导入配置见 [docs/ai-agent-install.md](docs/ai-agent-install.md)。
 
-```bash
-pnpm run deploy:dry-run
-pnpm run deploy
-```
-
-导入 Agent 准备好的初始配置：
-
-```bash
-cp config/agent-setup.example.json config/agent-setup.local.json
-# 编辑 config/agent-setup.local.json
-pnpm run seed:render
-pnpm run seed:remote
-```
-
-管理界面：
-
-```text
-https://substore.example.com/?token=<admin-token>
-```
-
-订阅链接：
+## 下载链接
 
 ```text
 https://substore.example.com/download/source/<source-id>?token=<download-token>
 https://substore.example.com/download/collection/<collection-id>?token=<download-token>
 https://substore.example.com/download/collection/<collection-id>/mihomo?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>/surge?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>/loon?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>/qx?token=<download-token>
 https://substore.example.com/download/collection/<collection-id>/sing-box?token=<download-token>
 ```
 
@@ -169,11 +138,7 @@ https://substore.example.com/download/source/<source-id>?token=<download-token>&
 https://substore.example.com/download/source/<source-id>/sing-box?token=<download-token>&content=<url-encoded-node-text>
 ```
 
-`url` 会临时替换该订阅源的远程订阅地址，`content` 会临时按本地节点文本解析，`ua` 会临时覆盖拉取远程订阅时使用的 User-Agent。临时参数只影响本次请求，不会写入 D1。订阅源开启「透传 User-Agent」时，Worker 会把订阅客户端请求下载链接时的 User-Agent 继续用于拉取远程订阅。
-
-如果配置了独立下载域名，把它写入 `SUB_STORE_PUBLIC_DOWNLOAD_HOSTS`。该域名只开放 `/download/*`。
-
-完整部署步骤见 [docs/deployment.md](docs/deployment.md)。
+`url` 会临时替换该订阅源的远程订阅地址，`content` 会临时按本地节点文本解析，`ua` 会临时覆盖拉取远程订阅时使用的 User-Agent。临时参数只影响本次请求，不会写入 D1。
 
 ## 配置模型
 
@@ -182,17 +147,13 @@ https://substore.example.com/download/source/<source-id>/sing-box?token=<downloa
 | Sources | 远程订阅 URL 或本地节点文本。 |
 | Collections | 多个 Sources 的组合订阅。 |
 | Filters | 节点包含、排除、正则删除、重命名、去重、排序、域名解析、旗帜和常用属性设置。 |
-| Templates | Mihomo 的代理组、规则提供者和规则列表。 |
-
-Worker API 保存的过滤器是这版自己的小型 JSON DSL，不暴露前端编辑器内部字段：
+| Templates | Mihomo / Stash / Surge Mac 的代理组、规则提供者和规则列表。 |
 
 输入格式：
 
 - 远程订阅：每行一个 `http(s)` URL，多个 URL 会合并。
 - 本地节点：支持单行 URI、Mihomo YAML、JSON 代理数组、常见 Surge/Loon/Quantumult X 单行节点，也支持完整 Base64 内容。
 - 常用 URI：`ss`、`ssr`、`vmess`、`vless`、`trojan`、`hysteria`、`hysteria2`、`tuic`、`anytls`、`http`、`socks5`、`wireguard`。
-- 临时输入：下载链接可附加 `url`、`content`、`ua`，用于复用当前订阅源或组合订阅的过滤器、规则模板和输出格式。
-- 流量信息：优先读取订阅响应头 `subscription-userinfo`，也可以手动填写 `upload=...; download=...; total=...`，或通过 `flowUrl` 指定独立查询地址。
 
 输出格式：
 
@@ -202,24 +163,6 @@ Worker API 保存的过滤器是这版自己的小型 JSON DSL，不暴露前端
 - sing-box：基础 JSON 配置。
 - v2ray：Base64 URI 列表。
 - JSON：处理后的节点数组，适合调试和二次处理。
-
-过滤器示例：
-
-```json
-[
-  { "type": "include", "field": "name", "pattern": "香港|HK|日本|JP" },
-  { "type": "exclude", "field": "name", "pattern": "官网|剩余|倍率" },
-  { "type": "delete-field", "field": "name", "patterns": ["倍率\\s*\\d+"] },
-  { "type": "dedupe", "fields": ["server", "port"], "action": "rename", "link": "-" },
-  { "type": "regex-sort", "expressions": ["香港|HK", "日本|JP", "新加坡|SG"], "direction": "asc" },
-  { "type": "flag", "mode": "add" },
-  { "type": "sort", "direction": "asc" }
-]
-```
-
-规则模板只应用于 Mihomo、Stash 和 Surge Mac 这类 YAML 输出。自定义模板可以导入常见 Mihomo YAML，也可以使用 JSON；导入时会识别 `mixed-port`、`allow-lan`、`log-level`、`proxy-groups`、`rule-providers` 这些 Mihomo 键名，并转换为内部配置。
-
-模板中的 `proxyGroups[].proxies` 或 `proxy-groups[].proxies` 可以写 `$all`，生成订阅时会展开为当前组合里的全部节点。
 
 ## 内置模板
 
@@ -237,6 +180,10 @@ pnpm run check:release
 ```
 
 这个命令会检查 Worker、构建前端，并扫描当前文件和 `main` 历史里的常见发布风险。
+
+## 致谢
+
+本项目的前端交互和订阅管理思路参考并致敬 [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store)。原版 Sub-Store 是功能完整的订阅管理项目，覆盖了更广的运行环境和客户端生态；这个仓库选择更小的 Cloudflare-native 形态，方便直接部署和二次修改。
 
 ## License
 

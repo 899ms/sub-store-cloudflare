@@ -1,6 +1,6 @@
 # AI Agent Install Protocol
 
-This file is the operating protocol for Codex, Claude Code, and similar local coding agents. Follow it when a user asks to install, deploy, or configure this repository.
+This file is the operating protocol for Codex, Claude Code, and similar local coding agents. Follow it when a user asks to install, deploy, configure, or verify this repository.
 
 ## Goal
 
@@ -10,29 +10,25 @@ Deploy Sub-Store Cloudflare into the user's Cloudflare account, import their sub
 
 - Keep the app Cloudflare-native and small: Workers Static Assets + Worker API + D1 + Worker Secrets.
 - Use D1 for structured configuration. Do not switch to R2/KV/Durable Objects/Queues/Cron/Pages unless the user explicitly changes the architecture and the code is updated for it.
-- Treat upstream Sub-Store as the reference for core interaction quality, not as a feature backlog to copy wholesale.
-- Preserve the core loop: manage sources, combine sources into collections, apply practical node filters, choose routing templates, preview output, and publish subscription URLs.
-- Do not add upstream-only systems such as file hosting, sync providers, sharing, archive/history, script runtime, log panels, queues, cron jobs, or artifact management unless the user explicitly expands the product boundary.
-- Do not expose UI controls for backend behavior that this Worker does not actually implement. A smaller real feature is preferred over a larger fake-compatible UI.
-- When copying from upstream, copy only code that directly supports the retained routes and data model. Do not keep placeholder routes, compatibility shells, or disabled navigation for removed systems.
-- Use `docs/product-scope.md` as the default decision rule for new features.
-- The public data model is `sources`, `collections`, `templates`, `filters`, and `sourceIds`.
-- The filter DSL accepted by Worker config is:
-  - `{ "type": "include", "field": "name", "pattern": "..." }`
-  - `{ "type": "exclude", "field": "name", "pattern": "..." }`
-  - `{ "type": "rename", "field": "name", "pattern": "...", "replacement": "..." }`
-  - `{ "type": "delete-field", "field": "name", "patterns": ["..."] }`
-  - `{ "type": "dedupe", "fields": ["server", "port"] }`
-  - `{ "type": "sort", "direction": "asc" }`
-  - `{ "type": "regex-sort", "expressions": ["香港|HK", "日本|JP"] }`
-  - `{ "type": "flag", "mode": "add" }`
-  - `{ "type": "quick", "useless": "ENABLED", "udp": "DEFAULT", "scert": "DEFAULT", "tfo": "DEFAULT" }`
-  - `{ "type": "resolve", "provider": "Cloudflare", "recordType": "A", "filter": "disabled" }`
-- Download URLs are:
-  - `/download/source/<source-id>?token=<download-token>`
-  - `/download/collection/<collection-id>?token=<download-token>`
-  - `/download/source/<source-id>/<target>?token=<download-token>`
-  - `/download/collection/<collection-id>/<target>?token=<download-token>`
+- The public data model is `sources`, `collections`, `templates`, `filters`, `settings`, and `sourceIds`.
+- Treat upstream Sub-Store as a reference for retained source, collection, filter, template, preview, backup/restore, and download workflows only.
+- Do not add files, Gist sync, share, archive, script runtime, logs, queues, cron, or artifact features during install or cleanup work.
+
+## Deployment Paths
+
+There are two supported install paths:
+
+1. **Deploy to Cloudflare button** for ordinary open-source users.
+   - Uses root `wrangler.jsonc`.
+   - Uses root `package.json` `build` and `deploy` scripts.
+   - Cloudflare provisions D1 and asks the user for Worker secrets.
+   - Does not import private sources from local files.
+2. **Agent / CLI installer** for users who want imported sources and collections.
+   - Write `config/agent-setup.local.json`.
+   - Run `pnpm run install:cloudflare`.
+   - Let the installer create or reuse D1, render local Wrangler config, set secrets, migrate, deploy, seed, and verify.
+
+Prefer the installer over manually running every deployment command.
 
 ## Privacy Rules
 
@@ -48,7 +44,7 @@ Deploy Sub-Store Cloudflare into the user's Cloudflare account, import their sub
 The user can start with:
 
 ```text
-Follow AGENTS.md and agent/SKILL.md in this repository. Deploy this Sub-Store Cloudflare project to my Cloudflare account. Ask me only for missing inputs, prepare my subscription sources and collections, generate the D1 seed SQL, deploy the Worker, import the seed, and give me the final admin URL plus collection download URLs.
+Follow AGENTS.md and agent/SKILL.md in this repository. Deploy this Sub-Store Cloudflare project to my Cloudflare account. Ask me only for missing inputs, write config/agent-setup.local.json, run pnpm run install:cloudflare, and give me the final admin URL plus collection download URLs.
 ```
 
 The same prompt is available in `agent/install.prompt.md`.
@@ -64,9 +60,9 @@ Ask only for missing inputs. Prefer reasonable defaults when the user does not c
   - custom admin domain.
   - custom admin domain plus separate download domain.
 - D1 database:
-  - create a new `sub-store-cloudflare`, or use an existing database name/id.
+  - create or reuse `sub-store-cloudflare`, or use an explicit database id.
 - Admin token and download token:
-  - user-provided, or generated locally with `openssl rand -base64 32`.
+  - user-provided, env-provided, or generated locally.
 - Sources:
   - remote subscription URLs.
   - local node text such as `vless://`, `trojan://`, `ss://`, `vmess://`.
@@ -87,50 +83,51 @@ Ask only for missing inputs. Prefer reasonable defaults when the user does not c
    - `git status --short`
    - `cat README.md`
    - `cat docs/deployment.md`
+   - `cat docs/ai-agent-install.md`
    - `cat agent/SKILL.md`
-   - `cat agent/install.prompt.md`
    - `cat config/agent-setup.schema.json`
-   - `cat config/agent-setup.example.json`
    - `cat config/rule-presets.json`
-2. Check tooling:
-   - `pnpm --dir cloudflare exec wrangler --version`
-   - `pnpm --dir cloudflare exec wrangler whoami`
-3. Prepare configuration:
-   - Copy `config/agent-setup.example.json` to `config/agent-setup.local.json`.
-   - Follow `config/agent-setup.schema.json`.
+2. Prepare private setup:
+   - Copy `config/agent-setup.example.json` to `config/agent-setup.local.json` if needed.
    - Fill `sources`, `collections`, optional custom `templates`.
    - Prefer `filterPresetIds` from `config/rule-presets.json` for common filters.
-   - Use only the Worker filter DSL listed above.
    - Validate with `pnpm run seed:validate`.
-4. Set up Cloudflare resources:
-   - Install dependencies with `pnpm run setup`.
-   - Create D1 if needed:
-     - `pnpm --dir cloudflare exec wrangler d1 create sub-store-cloudflare`
-   - Render local Wrangler config with the returned database id:
-     - `pnpm run deploy:config -- config/agent-setup.local.json cloudflare/wrangler.deploy.local.jsonc --database-id <database-id>`
-   - Set Worker secrets:
-     - `pnpm --dir cloudflare exec wrangler secret put SUB_STORE_ADMIN_TOKEN`
-     - `pnpm --dir cloudflare exec wrangler secret put SUB_STORE_PUBLIC_DOWNLOAD_TOKEN`
-5. Build and deploy:
-   - `pnpm run check`
-   - `pnpm run migrate:remote`
-   - `pnpm run deploy`
-6. Import user config without browser automation:
-   - `pnpm run seed:validate`
-   - `pnpm run seed:render`
-   - `pnpm run seed:remote`
-7. Verify with HTTP calls:
-   - `/api/env` with `?token=<admin-token>`
-   - `/api/templates` with `?token=<admin-token>`
-   - `/api/sources` with `?token=<admin-token>`
-   - `/api/collections` with `?token=<admin-token>`
-   - `/api/link/collection/<id>?token=<admin-token>`
-   - `/download/collection/<id>/mihomo?token=<download-token>`
-8. Finish with:
+3. Deploy with one command:
+   - `pnpm run install:cloudflare`
+4. Verify installer output:
+   - admin URL works.
+   - `/api/env`, `/api/templates`, `/api/sources`, `/api/collections` are verified.
+   - `/api/link/collection/<id>` and `/download/collection/<id>/mihomo` are verified when collections exist.
+5. Finish with:
    - final admin URL.
    - collection download URLs for Mihomo and any requested targets.
    - sources/collections summary.
    - `git status --short` privacy check summary.
+
+## Cloudflare Missing States
+
+If the user does not have a Cloudflare account, say clearly:
+
+```text
+This project requires a Cloudflare account because it runs on Workers + D1. I can prepare the local setup, but deployment requires Cloudflare. Create an account, then run:
+pnpm --dir cloudflare exec wrangler login
+pnpm run install:cloudflare
+```
+
+If Wrangler is not logged in, ask the user to run:
+
+```bash
+pnpm --dir cloudflare exec wrangler login
+```
+
+If the agent cannot connect to Cloudflare, stop at handoff:
+
+```text
+Cloudflare is not reachable from this environment. I prepared the local setup. Resume with:
+pnpm run install:cloudflare
+```
+
+Do not claim deployment success until HTTP verification passes.
 
 ## Template Guidance
 

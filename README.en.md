@@ -1,8 +1,54 @@
 # Sub-Store Cloudflare
 
-A small Cloudflare Workers app for subscription aggregation and cloud-side routing templates.
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/realchendahuang/sub-store-cloudflare)
+
+A small Cloudflare Workers app for subscription aggregation, cloud-side node processing, and routing templates.
 
 Chinese is the primary documentation language for this repository. See [README.md](README.md).
+
+## Fastest Install
+
+### Deploy to Cloudflare
+
+Click the button above. Cloudflare will clone this public repository into your GitHub/GitLab account, provision the Worker and D1 database, and deploy the app.
+
+The deployment flow asks for two secrets:
+
+- `SUB_STORE_ADMIN_TOKEN`: admin UI and `/api/*` token.
+- `SUB_STORE_PUBLIC_DOWNLOAD_TOKEN`: `/download/*` subscription token.
+
+Generate tokens with:
+
+```bash
+openssl rand -base64 32
+```
+
+Open the deployed app with:
+
+```text
+https://<your-worker>.<your-subdomain>.workers.dev/?token=<admin-token>
+```
+
+Then add sources, collections, filters, and templates in the web UI.
+
+### Agent / CLI Install
+
+For local agent-assisted installs with seeded sources and collections:
+
+```bash
+pnpm run install:cloudflare
+```
+
+The installer checks Cloudflare login, creates or reuses D1, renders local Wrangler config, sets Worker secrets, migrates D1, deploys the Worker, imports `config/agent-setup.local.json`, verifies HTTP endpoints, and prints ready-to-copy URLs.
+
+If Cloudflare is not available yet:
+
+```bash
+pnpm --dir cloudflare exec wrangler login
+pnpm run install:cloudflare
+```
+
+For Codex, Claude Code, or another local coding agent, copy [agent/install.prompt.md](agent/install.prompt.md).
 
 ## What It Does
 
@@ -10,40 +56,18 @@ Chinese is the primary documentation language for this repository. See [README.m
 - Combines multiple sources into one cloud-side collection.
 - Filters by region, type, and regex; renames, deletes matched name text, deduplicates, regex-sorts, resolves node hostnames, adds/removes flags, and applies common node options.
 - Provides built-in Mihomo routing templates and supports custom JSON/YAML templates.
-- Previews original and processed node lists in the admin UI, with local node validation.
-- Supports subscription usage info, config backup/restore, and request options such as User-Agent, pass-through User-Agent, timeout, and remote fetch concurrency.
-- Supports temporary `url`, `content`, and `ua` download parameters for one-off conversion through an existing source or collection profile.
+- Previews original and processed node lists in the admin UI.
+- Supports subscription usage info, config backup/restore, User-Agent options, pass-through User-Agent, timeout, and remote fetch concurrency.
+- Supports temporary `url`, `content`, and `ua` download parameters for one-off conversion.
 - Outputs Mihomo, Stash, Surge, Surge Mac, Surfboard, Loon, Egern, Shadowrocket, Quantumult X, sing-box, v2ray, URI, and JSON.
-- Uses Worker Secrets for admin and download tokens.
 
 The deployment model is intentionally small: Workers Static Assets + Worker API + D1 + Worker Secrets.
-The core loop is: add sources, process nodes, combine sources, apply a routing template, preview the result, and copy the final download URL. This repository is not a full feature-by-feature clone of Sub-Store and not a Cloudflare platform showcase.
 
-See [docs/product-scope.md](docs/product-scope.md) for the product boundary.
-
-## Architecture
-
-```text
-Cloudflare Worker
-  |-- Static Assets              Vue admin UI
-  |-- /api/*                     config API
-  |-- /download/source/*         source output
-  |-- /download/collection/*     collection output
-  |
-  |-- D1                         sources / collections / templates / settings
-  |-- Worker Secrets             admin token / download token
-```
-
-No KV, R2, Durable Objects, Queues, or Cron are required for the core workflow.
-
-## Quick Start
+## Local Development
 
 ```bash
 pnpm run setup
-pnpm --dir cloudflare exec wrangler d1 create sub-store-cloudflare
 cp cloudflare/.dev.vars.example cloudflare/.dev.vars
-cp config/agent-setup.example.json config/agent-setup.local.json
-pnpm run deploy:config -- config/agent-setup.local.json cloudflare/wrangler.deploy.local.jsonc --database-id <database-id>
 pnpm run build:frontend
 pnpm run dev
 ```
@@ -51,69 +75,24 @@ pnpm run dev
 Open:
 
 ```text
-http://localhost:8787/?token=<admin-token>
+http://localhost:8787/?token=dev-admin-token
 ```
 
-## AI Agent Install
-
-Ask Codex, Claude Code, or another local coding agent to follow [AGENTS.md](AGENTS.md) and [agent/SKILL.md](agent/SKILL.md). A copyable prompt is in [agent/install.prompt.md](agent/install.prompt.md):
-
-```text
-Follow AGENTS.md and agent/SKILL.md in this repository. Help me deploy this Sub-Store Cloudflare project to my Cloudflare account. Ask me only for missing inputs, prepare my subscription sources and collections, generate the D1 seed SQL, deploy the Worker, import the seed, and give me the final admin URL plus collection download URLs.
-```
-
-See [docs/ai-agent-install.md](docs/ai-agent-install.md).
-Rule and filter presets live in [config/rule-presets.json](config/rule-presets.json), and the setup schema lives in [config/agent-setup.schema.json](config/agent-setup.schema.json).
-
-Production secrets:
+## Manual Deploy
 
 ```bash
+pnpm run setup
+pnpm --dir cloudflare exec wrangler login
+pnpm --dir cloudflare exec wrangler d1 create sub-store-cloudflare
+cp config/agent-setup.example.json config/agent-setup.local.json
+pnpm run deploy:config -- config/agent-setup.local.json cloudflare/wrangler.deploy.local.jsonc --database-id <database-id>
 pnpm --dir cloudflare exec wrangler secret put SUB_STORE_ADMIN_TOKEN
 pnpm --dir cloudflare exec wrangler secret put SUB_STORE_PUBLIC_DOWNLOAD_TOKEN
-```
-
-Deploy:
-
-```bash
 pnpm run migrate:remote
-pnpm run deploy
+pnpm run deploy:local
 ```
 
-Import local agent-prepared seed data:
-
-```bash
-cp config/agent-setup.example.json config/agent-setup.local.json
-# edit config/agent-setup.local.json
-pnpm run seed:render
-pnpm run seed:remote
-```
-
-Download URLs:
-
-```text
-https://substore.example.com/download/source/<source-id>?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>/mihomo?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>/surge?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>/loon?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>/qx?token=<download-token>
-https://substore.example.com/download/collection/<collection-id>/sing-box?token=<download-token>
-```
-
-Links without an explicit output target are general subscription links. The Worker chooses an output target from the client User-Agent, or you can pin `mihomo`, `stash`, `surge`, `loon`, `qx`, `sing-box`, `uri`, `json`, and other supported targets explicitly.
-
-One-off conversion:
-
-```text
-https://substore.example.com/download/source/<source-id>?token=<download-token>&url=https%3A%2F%2Fexample.com%2Fsub
-https://substore.example.com/download/source/<source-id>/sing-box?token=<download-token>&content=<url-encoded-node-text>
-```
-
-`url` temporarily replaces the remote subscription URL, `content` is parsed as local node text, and `ua` temporarily overrides the User-Agent for fetching a remote subscription. These parameters affect only the current request. When a source enables pass-through User-Agent, the Worker forwards the subscription client's User-Agent while fetching the remote subscription.
-
-Custom routing templates apply to Mihomo, Stash, and Surge Mac YAML output. You can import regular Mihomo YAML using keys such as `mixed-port`, `proxy-groups`, and `rule-providers`, or use the internal camelCase JSON keys such as `mixedPort`, `proxyGroups`, and `ruleProviders`.
-
-Local node content accepts URI lines, Mihomo YAML, JSON proxy arrays, complete Base64 content, and common Surge/Loon/Quantumult X single-line node formats.
+See [docs/deployment.md](docs/deployment.md) and [docs/ai-agent-install.md](docs/ai-agent-install.md).
 
 ## Acknowledgements
 
