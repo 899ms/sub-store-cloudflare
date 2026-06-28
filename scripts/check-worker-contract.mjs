@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { execFileSync } from "node:child_process";
+
+const SUPPORTED_TARGETS = ["mihomo", "stash", "surge", "surge-mac", "surfboard", "loon", "egern", "shadowrocket", "qx", "sing-box", "v2ray", "uri", "json"];
 
 const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "cloudflare/src"], { encoding: "utf8" })
   .split("\0")
@@ -39,4 +40,54 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
+assertTargetCoverage();
+
 console.log("Worker contract scan passed.");
+
+function assertTargetCoverage() {
+  const checks = [
+    {
+      file: "cloudflare/src/types.ts",
+      label: "SubscriptionTarget union",
+      matcher: (target) => new RegExp(`["']${escapeRegExp(target)}["']`).test(readFileSync("cloudflare/src/types.ts", "utf8")),
+    },
+    {
+      file: "config/agent-setup.schema.json",
+      label: "deployment downloadTargets schema",
+      matcher: (target) => downloadTargetsSchema().includes(target),
+    },
+    {
+      file: "scripts/validate-agent-setup.mjs",
+      label: "deployment target validator",
+      matcher: (target) => new RegExp(`["']${escapeRegExp(target)}["']`).test(readFileSync("scripts/validate-agent-setup.mjs", "utf8")),
+    },
+    {
+      file: "frontend/src/components/PreviewPanel.vue",
+      label: "preview platform list",
+      matcher: (target) => new RegExp(`path:\\s*["']${escapeRegExp(target)}["']`).test(readFileSync("frontend/src/components/PreviewPanel.vue", "utf8")),
+    },
+  ];
+
+  const targetFindings = [];
+  for (const target of SUPPORTED_TARGETS) {
+    for (const check of checks) {
+      if (!check.matcher(target)) {
+        targetFindings.push(`${check.file}: missing ${target} in ${check.label}`);
+      }
+    }
+  }
+
+  if (targetFindings.length > 0) {
+    console.error(targetFindings.join("\n"));
+    process.exit(1);
+  }
+}
+
+function downloadTargetsSchema() {
+  const schema = JSON.parse(readFileSync("config/agent-setup.schema.json", "utf8"));
+  return schema?.properties?.deployment?.properties?.downloadTargets?.items?.enum || [];
+}
+
+function escapeRegExp(input) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

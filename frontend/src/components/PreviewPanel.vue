@@ -42,6 +42,7 @@
   import clashmeta from '@/assets/icons/clashmeta.png';
   import stash from '@/assets/icons/stash.png';
   import surge from '@/assets/icons/surge.png';
+  import surgeMac from '@/assets/icons/surgeformac_icon.png';
   import loon from '@/assets/icons/loon.png';
   import quanx from '@/assets/icons/quanx.png';
   import shadowrocket from '@/assets/icons/shadowrocket.png';
@@ -157,7 +158,7 @@
   const platformList = [
     {
       name: general,
-      path: null,
+      path: 'mihomo',
       icon: logoIcon,
     },
     {
@@ -174,6 +175,11 @@
       name: 'Surge',
       path: 'surge',
       icon: surge,
+    },
+    {
+      name: 'Surge Mac',
+      path: 'surge-mac',
+      icon: surgeMac,
     },
     {
       name: 'Loon',
@@ -207,17 +213,17 @@
     },
     {
       name: 'V2Ray',
-      path: 'V2Ray',
+      path: 'v2ray',
       icon: v2ray,
     },
     {
       name: 'URI',
-      path: 'URI',
+      path: 'uri',
       icon: uri,
     },
     {
       name: 'JSON',
-      path: 'JSON',
+      path: 'json',
       icon: json,
     },
   ];

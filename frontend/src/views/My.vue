@@ -135,7 +135,19 @@
         <h2>{{ templateEditingId ? "编辑规则模板" : "导入规则模板" }}</h2>
         <nut-input class="input" v-model.trim="templateForm.id" placeholder="模板 ID，例如 custom-mihomo" input-align="left" :disabled="Boolean(templateEditingId)" />
         <nut-input class="input" v-model.trim="templateForm.name" placeholder="显示名称，例如 Custom Mihomo" input-align="left" />
-        <nut-cell class="template-target-trigger" title="输出格式" desc="mihomo" />
+        <nut-cell class="template-target-trigger" @click="openTemplateTargetPicker">
+          <view class="nut-cell__title">输出格式</view>
+          <view class="nut-cell__value">
+            <nut-input
+              :model-value="templateTargetLabel"
+              :border="false"
+              readonly
+              input-align="right"
+              right-icon="rect-right"
+              @click-right-icon.stop="openTemplateTargetPicker"
+            />
+          </view>
+        </nut-cell>
         <div class="template-content-editor">
           <cmView :is-read-only="false" id="TemplateEditor" />
         </div>
@@ -144,6 +156,15 @@
         </nut-button>
       </div>
     </nut-popup>
+    <DesktopPicker
+      v-model="selectedTemplateTargetValue"
+      v-model:visible="templateTargetPickerVisible"
+      :columns="templateTargetColumns"
+      title="选择输出格式"
+      cancel-text="取消"
+      ok-text="确定"
+      @confirm="handleTemplateTargetConfirm"
+    />
   </div>
 </template>
 
@@ -154,6 +175,7 @@ import { Dialog } from "@nutui/nutui";
 
 import { useCloudflareApi } from "@/api/app";
 import LanguageSwitcherButton from "@/components/LanguageSwitcherButton.vue";
+import DesktopPicker from "@/components/DesktopPicker.vue";
 import { useSettingsApi } from "@/api/settings";
 import { useBackend } from "@/hooks/useBackend";
 import { useAppNotifyStore } from "@/store/appNotify";
@@ -178,6 +200,7 @@ const requestSaving = ref(false);
 const templateImporting = ref(false);
 const templateImportVisible = ref(false);
 const templateEditingId = ref("");
+const templateTargetPickerVisible = ref(false);
 const templates = ref<any[]>([]);
 const simpleMode = ref(Boolean(appearanceSetting.value.isSimpleMode));
 const wideScreenNarrowMode = ref(Boolean(appearanceSetting.value.useNarrowModeOnWideScreen));
@@ -193,6 +216,21 @@ const templateForm = reactive({
   id: "",
   name: "",
   target: "mihomo",
+});
+const selectedTemplateTargetValue = ref<string[]>([]);
+const templateTargetOptions = [
+  { value: "mihomo", label: "Mihomo" },
+  { value: "stash", label: "Stash" },
+  { value: "surge-mac", label: "Surge Mac" },
+];
+const templateTargetColumns = computed(() => {
+  return templateTargetOptions.map((option) => ({
+    text: option.label,
+    value: option.value,
+  }));
+});
+const templateTargetLabel = computed(() => {
+  return templateTargetOptions.find((option) => option.value === templateForm.target)?.label || templateForm.target || "Mihomo";
 });
 const appName = computed(() => {
   return env.value?.app
@@ -282,7 +320,7 @@ const openTemplateEdit = (template: any) => {
   templateEditingId.value = template.name;
   templateForm.id = template.name;
   templateForm.name = template.displayName || template.name;
-  templateForm.target = "mihomo";
+  templateForm.target = template.target || "mihomo";
   cmStore.setEditCode(TEMPLATE_EDITOR_ID, JSON.stringify(template.config || {}, null, 2));
   templateImportVisible.value = true;
 };
@@ -299,6 +337,17 @@ const importTemplateFromFile = async (event: Event) => {
   templateForm.target = "mihomo";
   cmStore.setEditCode(TEMPLATE_EDITOR_ID, await file.text());
   templateImportVisible.value = true;
+};
+
+const openTemplateTargetPicker = () => {
+  selectedTemplateTargetValue.value = [templateForm.target || "mihomo"];
+  templateTargetPickerVisible.value = true;
+};
+
+const handleTemplateTargetConfirm = ({ selectedValue }) => {
+  templateForm.target = selectedValue?.[0] || "mihomo";
+  selectedTemplateTargetValue.value = [templateForm.target];
+  templateTargetPickerVisible.value = false;
 };
 
 const saveTemplate = async () => {

@@ -15,6 +15,7 @@ const BUILTIN_TEMPLATE_IDS = new Set([
   "ai-streaming-mihomo",
 ]);
 const SUPPORTED_TARGETS = new Set(["mihomo", "stash", "surge", "surge-mac", "surfboard", "loon", "egern", "shadowrocket", "qx", "sing-box", "v2ray", "uri", "json"]);
+const SUPPORTED_TEMPLATE_TARGETS = new Set(["mihomo", "stash", "surge-mac"]);
 
 const errors = [];
 const warnings = [];
@@ -54,6 +55,8 @@ for (const template of templates) {
   }
   if (BUILTIN_TEMPLATE_IDS.has(id)) warnings.push(`templates.${id} overrides a built-in template`);
   templateIds.add(id);
+  const target = stringValue(template.target) || "mihomo";
+  if (!SUPPORTED_TEMPLATE_TARGETS.has(target)) errors.push(`templates.${id}.target contains unsupported template target: ${target}`);
   if (!object(template.config)) errors.push(`templates.${id}.config must be an object`);
 }
 

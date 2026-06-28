@@ -10,9 +10,6 @@ import My from '@/views/My.vue';
 
 import Sub from '@/views/Sub.vue';
 
-// import editScript from '@/views/editCode/editScript.vue';
-// import themeSetting from '@/views/themeSetting.vue';
-
 import { Toast } from '@nutui/nutui';
 import { toRaw } from 'vue';
 import 'vue-router';
@@ -134,15 +131,6 @@ const router = createRouter({
             needNavBack: false,
           },
         },
-        // {
-        //   path: '/edit/Script/:id',
-        //   component: editScript,
-        //   meta: {
-        //     title: 'editScript',
-        //     needTabBar: false,
-        //     needNavBack: true,
-        //   },
-        // },
         {
           path: '/preview',
           component: () => import('@/views/FilePreview.vue'),
@@ -161,15 +149,6 @@ const router = createRouter({
             needNavBack: true,
           },
         },
-        // {
-        //   path: '/settings/theme',
-        //   component: themeSetting,
-        //   meta: {
-        //     title: 'themeSetting',
-        //     needTabBar: false,
-        //     needNavBack: true,
-        //   },
-        // },
       ],
     },
     {

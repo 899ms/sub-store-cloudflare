@@ -2,6 +2,7 @@
   "name": "sub-store-cloudflare-workspace",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "setup": "pnpm --dir frontend install && pnpm --dir cloudflare install",
@@ -22,10 +23,11 @@
     "access:render": "node scripts/render-cloudflare-access.mjs",
     "access:apply": "node scripts/render-cloudflare-access.mjs --apply",
     "check:agent": "pnpm run seed:validate -- config/agent-setup.example.json && pnpm run seed:validate -- config/agent-setup.access.example.json && node scripts/render-seed-sql.mjs config/agent-setup.example.json /tmp/sub-store-agent-seed-test.sql && node scripts/render-cloudflare-access.mjs config/agent-setup.example.json /tmp/sub-store-access-disabled-test.json && node scripts/render-cloudflare-access.mjs config/agent-setup.access.example.json /tmp/sub-store-access-enabled-test.json && node scripts/render-wrangler-config.mjs config/agent-setup.example.json /tmp/wrangler.deploy.test.jsonc --database-id 00000000-0000-0000-0000-000000000000",
+    "check:module-format": "node scripts/check-module-format.mjs",
     "check:worker-contract": "node scripts/check-worker-contract.mjs",
     "check:open-source": "node scripts/check-open-source.mjs",
     "check:history": "node scripts/check-git-history.mjs",
-    "check:release": "pnpm run check && pnpm run check:agent && pnpm run check:worker-contract && pnpm run check:open-source && pnpm run check:history -- main"
+    "check:release": "pnpm run check && pnpm run check:agent && pnpm run check:module-format && pnpm run check:worker-contract && pnpm run check:open-source && pnpm run check:history -- main"
   },
   "devDependencies": {}
 }

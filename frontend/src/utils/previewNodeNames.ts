@@ -7,33 +7,6 @@ export interface PreviewNodeInfo {
   type: string;
 }
 
-export const PREVIEW_NODE_INFO_PROMPT_REFERENCE = [
-  'async function operator(proxies, targetPlatform, context) {',
-  '  // 更多需求 可参考 https://raw.githubusercontent.com/sub-store-org/Sub-Store/refs/heads/master/scripts/demo.js',
-  '  // Sub-Store 脚本教程合集 https://t.me/zhetengsha/214',
-  '  return proxies.map(proxy => {',
-  '    // 订阅名称',
-  '    const subName = proxy._subDisplayName || proxy._subName ',
-  '',
-  '    // 提取特征文本用于识别旗帜',
-  '    const geoStr = proxy.name.match(/一段正则/)?.[1]',
-  '',
-  '    // 从特征文本得到旗帜 并替换掉旗帜(因为某些旗帜在某些平台上无法显示)',
-  '    // ProxyUtils.getFlag 源码 https://raw.githubusercontent.com/sub-store-org/Sub-Store/refs/heads/master/backend/src/utils/geo.js, 支持大部分常见文本的识别, 不局限于 ISO 3166-1 alpha-2 或 emoji 旗帜',
-  "    const flag = ProxyUtils.getFlag(geoStr).replace(/🇹🇼/g, '🇼🇸')",
-  '    // 从特征文本得到 ISO 3166-1 alpha-2',
-  '    const iso = ProxyUtils.getISO(geoStr)',
-  '',
-  '    // 提取协议类型',
-  '    const type = proxy.type',
-  '',
-  '    // 组合赋值实现重命名',
-  '    proxy.name = `${flag} ${iso} [${type}] ${proxy.name}` ',
-  '    return proxy;',
-  '  });',
-  '}',
-].join('\n');
-
 const NODE_ARRAY_KEYS = [
   'proxies',
   'proxy',
@@ -189,20 +162,19 @@ export const formatPreviewNodeInfos = (nodeInfos: PreviewNodeInfo[]) => {
 
 export const formatPreviewNodeInfoPrompt = (nodeInfos: PreviewNodeInfo[]) => {
   return [
-    '写一段 JavaScript 代码, 参考:',
-    '```',
-    PREVIEW_NODE_INFO_PROMPT_REFERENCE,
-    '```',
-    '以实现将',
+    '请根据下面的代理节点名称，帮我设计一套通用、可维护的节点命名规则。',
+    '不要输出 JavaScript 代码；请输出：',
+    '1. 建议的统一命名格式',
+    '2. 可用于正则重命名的匹配思路',
+    '3. 需要特殊处理的地区、倍率、协议或中转标记',
+    '4. 5 个改名前后的示例',
+    '',
+    '节点信息：',
     '```',
     formatPreviewNodeInfos(nodeInfos),
     '```',
-    '转换为',
-    '```',
-    '["订阅名"] "国家地区 Emoji" "ISO 3166-1 alpha-2" ["协议类型"] "防重名序数" ',
-    '```',
-    '的格式',
-    '写得更通用一些, 以适应其他新的节点名',
+    '',
+    '目标：命名结果尽量包含地区、协议或线路类型，并能适应后续新增节点。',
   ].join('\n');
 };
 
